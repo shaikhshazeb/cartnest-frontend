@@ -27,9 +27,9 @@ const AccountPage = () => {
           {/* Sidebar */}
           <div className="bg-card border border-border rounded-lg p-4 h-fit">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">{user?.name?.[0] || "U"}</div>
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">{user?.username?.[0] || "U"}</div>
               <div>
-                <p className="font-semibold text-foreground text-sm">{user?.name || "User"}</p>
+                <p className="font-semibold text-foreground text-sm">{user?.username || "User"}</p>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
             </div>
@@ -58,7 +58,7 @@ const AccountPage = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">Name</label>
-                  <input type="text" defaultValue={user?.name} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground" />
+                  <input type="text" defaultValue={user?.username} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">Email</label>

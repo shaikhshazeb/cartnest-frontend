@@ -63,11 +63,19 @@ const Navbar = () => {
           <div className="flex items-center gap-1 md:gap-2 ml-auto">
             {isAuthenticated ? (
               <div className="hidden md:flex items-center gap-1">
-                <Link to={user?.isAdmin ? "/admin" : "/account"} className="flex items-center gap-2 text-foreground hover:text-primary transition-colors text-sm px-3 py-2 rounded-lg hover:bg-accent">
+                <Link
+                  to={user?.role === "ADMIN" ? "/admin" : "/account"}
+                  className="flex items-center gap-2 text-foreground hover:text-primary transition-colors text-sm px-3 py-2 rounded-lg hover:bg-accent"
+                >
+
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <FiUser className="w-4 h-4 text-primary" />
                   </div>
-                  <span className="hidden lg:inline font-medium">Hi, {user?.name}</span>
+
+                  <span className="hidden lg:inline font-medium">
+                    Hi, {user?.username}
+                  </span>
+
                 </Link>
                 <button onClick={logout} className="text-muted-foreground hover:text-destructive transition-colors p-2 rounded-lg hover:bg-muted">
                   <FiLogOut className="w-4 h-4" />
