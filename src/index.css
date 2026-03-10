@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 163 60% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 163 60% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 163 60% 8%;
+
+    --primary: 163 83% 17%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 38 97% 65%;
+    --secondary-foreground: 163 83% 12%;
+
+    --muted: 160 10% 93%;
+    --muted-foreground: 163 15% 45%;
+
+    --accent: 163 30% 94%;
+    --accent-foreground: 163 83% 17%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 12% 90%;
+    --input: 160 12% 90%;
+    --ring: 163 83% 17%;
+
+    --radius: 0.625rem;
+
+    --success: 142 72% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 97% 55%;
+    --warning-foreground: 163 83% 12%;
+
+    --info: 210 90% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --nav-bg: 163 83% 17%;
+    --nav-foreground: 0 0% 100%;
+    --nav-accent: 163 70% 22%;
+
+    --badge-sale: 0 84% 55%;
+    --badge-new: 163 83% 35%;
+    --badge-hot: 38 97% 55%;
+
+    --gold: 38 97% 65%;
+    --gold-foreground: 163 83% 12%;
+    --deep-green: 163 83% 12%;
+    --light-green: 163 30% 94%;
+
+    --shadow-card: 0 2px 12px -2px hsl(163 83% 17% / 0.06), 0 4px 20px -4px hsl(163 83% 17% / 0.04);
+    --shadow-card-hover: 0 12px 32px -4px hsl(163 83% 17% / 0.12), 0 20px 48px -8px hsl(163 83% 17% / 0.06);
+    --shadow-nav: 0 4px 20px -2px hsl(163 83% 17% / 0.25);
+    --shadow-gold: 0 4px 16px -2px hsl(38 97% 65% / 0.35);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 163 60% 8%;
+    --sidebar-primary: 163 83% 17%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 163 30% 94%;
+    --sidebar-accent-foreground: 163 83% 17%;
+    --sidebar-border: 160 12% 91%;
+    --sidebar-ring: 163 83% 17%;
+  }
+
+  .dark {
+    --background: 163 30% 5%;
+    --foreground: 160 10% 95%;
+    --card: 163 25% 9%;
+    --card-foreground: 160 10% 95%;
+    --popover: 163 25% 9%;
+    --popover-foreground: 160 10% 95%;
+    --primary: 163 83% 17%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 38 97% 65%;
+    --secondary-foreground: 163 83% 12%;
+    --muted: 163 20% 14%;
+    --muted-foreground: 160 10% 60%;
+    --accent: 163 40% 12%;
+    --accent-foreground: 38 97% 70%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 163 20% 16%;
+    --input: 163 20% 16%;
+    --ring: 38 97% 65%;
+    --nav-bg: 163 83% 10%;
+    --nav-foreground: 0 0% 100%;
+    --nav-accent: 163 60% 15%;
+    --sidebar-background: 163 25% 8%;
+    --sidebar-foreground: 160 10% 95%;
+    --sidebar-primary: 38 97% 65%;
+    --sidebar-primary-foreground: 163 83% 12%;
+    --sidebar-accent: 163 30% 12%;
+    --sidebar-accent-foreground: 160 10% 95%;
+    --sidebar-border: 163 20% 16%;
+    --sidebar-ring: 38 97% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+  .hover-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .skeleton-loader {
+    @apply animate-pulse bg-muted rounded;
+  }
+
+  .gold-gradient {
+    background: linear-gradient(135deg, hsl(38 97% 65%), hsl(38 97% 55%), hsl(38 80% 50%));
+  }
+
+  .green-gradient {
+    background: linear-gradient(135deg, hsl(163 83% 22%), hsl(163 83% 17%), hsl(163 83% 12%));
+  }
+
+  .text-gold-gradient {
+    background: linear-gradient(135deg, hsl(38 97% 65%), hsl(38 97% 50%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
