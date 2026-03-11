@@ -1,144 +1,180 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-const API = "https://cartnest-backend-k55k.onrender.com";
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
 
-interface User {
+/** Shape of the user stored in state and localStorage. */
+export interface AuthUser {
   username: string;
   email: string;
-  role: string;
+  role: "CUSTOMER" | "ADMIN";
 }
 
+/** What callers receive from useAuth(). */
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  user: AuthUser | null;
   isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    role: "CUSTOMER" | "ADMIN"
+  ) => Promise<boolean>;
+  logout: () => void;
 }
+
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
+
+const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
+const STORAGE_KEY = "cartnest_user"; // key used in localStorage
+
+// ─────────────────────────────────────────────
+// Context
+// ─────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+// ─────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────
 
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-
-    const username = localStorage.getItem("username");
-    const role = localStorage.getItem("role");
-
-    if (username && role) {
-      setUser({
-        username,
-        email: "",
-        role
-      });
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  // Initialise state directly from localStorage so the first render is
+  // already hydrated – no flicker, no useEffect delay.
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as AuthUser) : null;
+    } catch {
+      return null;
     }
+  });
 
+  // Keep localStorage in sync whenever user state changes.
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [user]);
+
+  // ── login ──────────────────────────────────
+  const login = useCallback(
+    async (email: string, password: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!res.ok) {
+          // Surface the backend error message when available.
+          const errorData = await res.json().catch(() => null);
+          throw new Error(
+            errorData?.message ?? `Login failed (HTTP ${res.status})`
+          );
+        }
+
+        // Backend returns: { username: string, role: "CUSTOMER" | "ADMIN" }
+        const data = await res.json();
+
+        const loggedInUser: AuthUser = {
+          username: data.username,
+          email,                       // backend doesn't echo email on login
+          role: data.role as AuthUser["role"],
+        };
+
+        setUser(loggedInUser);
+        return true;
+      } catch (err) {
+        // Re-throw so the calling component can show a toast/error message.
+        throw err instanceof Error ? err : new Error("Login failed");
+      }
+    },
+    []
+  );
+
+  // ── register ───────────────────────────────
+  const register = useCallback(
+    async (
+      name: string,
+      email: string,
+      password: string,
+      role: "CUSTOMER" | "ADMIN"
+    ): Promise<boolean> => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/users/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: name,   // backend field is "username"
+            email,
+            password,
+            role,
+          }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => null);
+          throw new Error(
+            errorData?.message ?? `Registration failed (HTTP ${res.status})`
+          );
+        }
+
+        // Backend returns: { user: { username, email, role, user_id, ... }, message }
+        const data = await res.json();
+        const registeredUser = data.user;
+
+        const newUser: AuthUser = {
+          username: registeredUser.username,
+          email: registeredUser.email,
+          role: registeredUser.role as AuthUser["role"],
+        };
+
+        setUser(newUser);
+        return true;
+      } catch (err) {
+        throw err instanceof Error ? err : new Error("Registration failed");
+      }
+    },
+    []
+  );
+
+  // ── logout ─────────────────────────────────
+  const logout = useCallback(() => {
+    setUser(null);
+    // localStorage is cleared by the useEffect above.
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-
-    try {
-
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "include",
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data) return false;
-
-      localStorage.setItem("username", data.username);
-      localStorage.setItem("role", data.role);
-
-      setUser({
-        username: data.username,
-        email,
-        role: data.role
-      });
-
-      return true;
-
-    } catch (err) {
-
-      console.error(err);
-      return false;
-
-    }
-
-  };
-
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-
-    try {
-
-      const res = await fetch(`${API}/api/users/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username: name,
-          email,
-          password,
-          role: "CUSTOMER"
-        })
-      });
-
-      return res.ok;
-
-    } catch (err) {
-
-      console.error(err);
-      return false;
-
-    }
-
-  };
-
-  const logout = () => {
-
-    localStorage.removeItem("username");
-    localStorage.removeItem("role");
-
-    setUser(null);
-
-  };
-
   return (
-
     <AuthContext.Provider
       value={{
         user,
+        isAuthenticated: !!user,
         login,
         register,
         logout,
-        isAuthenticated: !!user
       }}
     >
-
       {children}
-
     </AuthContext.Provider>
-
   );
-
 };
 
-export const useAuth = () => {
+// ─────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────
 
+export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
-
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
   return ctx;
-
 };
