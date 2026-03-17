@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { FiShoppingCart, FiHeart, FiStar } from "react-icons/fi";
 import { motion } from "framer-motion";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import type { Product } from "@/data/products";
 
 const badgeStyles = {
@@ -12,7 +13,17 @@ const badgeStyles = {
 
 const ProductCard = ({ product, index = 0 }: { product: Product; index?: number }) => {
   const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
+  const wishlisted = isWishlisted(product.id);
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+
+  const handleWishlist = () => {
+    if (wishlisted) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+  };
 
   return (
     <motion.div
@@ -35,8 +46,12 @@ const ProductCard = ({ product, index = 0 }: { product: Product; index?: number 
             {product.badge === "sale" ? `${discount}% OFF` : product.badge}
           </span>
         )}
-        <button className="absolute top-2.5 right-2.5 w-8 h-8 bg-card/90 backdrop-blur-sm rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:text-destructive hover:scale-110 shadow-sm">
-          <FiHeart className="w-4 h-4" />
+        {/* Heart button — always visible */}
+        <button
+          onClick={handleWishlist}
+          className={`absolute top-2.5 right-2.5 w-8 h-8 bg-card/90 backdrop-blur-sm rounded-lg flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-sm ${wishlisted ? "text-destructive" : "text-muted-foreground hover:text-destructive"}`}
+        >
+          <FiHeart className={`w-4 h-4 ${wishlisted ? "fill-destructive" : ""}`} />
         </button>
       </div>
 
@@ -58,9 +73,9 @@ const ProductCard = ({ product, index = 0 }: { product: Product; index?: number 
 
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-lg font-black text-card-foreground">${product.price}</span>
+            <span className="text-lg font-black text-card-foreground">₹{product.price}</span>
             {product.originalPrice > product.price && (
-              <span className="text-xs text-muted-foreground line-through ml-1.5">${product.originalPrice}</span>
+              <span className="text-xs text-muted-foreground line-through ml-1.5">₹{product.originalPrice}</span>
             )}
           </div>
           <button

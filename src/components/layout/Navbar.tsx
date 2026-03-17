@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FiSearch, FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiChevronDown, FiLogOut } from "react-icons/fi";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { categories } from "@/data/products";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -11,6 +12,7 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [catOpen, setCatOpen] = useState(false);
   const { totalItems } = useCart();
+  const { totalItems: wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -67,15 +69,10 @@ const Navbar = () => {
                   to={user?.role === "ADMIN" ? "/admin" : "/account"}
                   className="flex items-center gap-2 text-foreground hover:text-primary transition-colors text-sm px-3 py-2 rounded-lg hover:bg-accent"
                 >
-
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <FiUser className="w-4 h-4 text-primary" />
                   </div>
-
-                  <span className="hidden lg:inline font-medium">
-                    Hi, {user?.username}
-                  </span>
-
+                  <span className="hidden lg:inline font-medium">Hi, {user?.username}</span>
                 </Link>
                 <button onClick={logout} className="text-muted-foreground hover:text-destructive transition-colors p-2 rounded-lg hover:bg-muted">
                   <FiLogOut className="w-4 h-4" />
@@ -88,10 +85,21 @@ const Navbar = () => {
               </Link>
             )}
 
-            <Link to="/wishlist" className="text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent hidden md:block">
+            {/* Wishlist icon with count */}
+            <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent hidden md:block">
               <FiHeart className="w-5 h-5" />
+              {wishlistCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm"
+                >
+                  {wishlistCount}
+                </motion.span>
+              )}
             </Link>
 
+            {/* Cart icon with count */}
             <Link to="/cart" className="relative text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent">
               <FiShoppingCart className="w-5 h-5" />
               {totalItems > 0 && (
@@ -185,6 +193,9 @@ const Navbar = () => {
                   <>
                     <Link to="/account" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium" onClick={() => setMobileOpen(false)}>
                       <FiUser /> My Account
+                    </Link>
+                    <Link to="/wishlist" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium" onClick={() => setMobileOpen(false)}>
+                      <FiHeart /> Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                     </Link>
                     <button onClick={() => { logout(); setMobileOpen(false); }} className="flex items-center gap-2 px-3 py-2.5 text-sm text-destructive font-medium">
                       <FiLogOut /> Logout

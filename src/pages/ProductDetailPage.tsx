@@ -4,6 +4,7 @@ import { FiStar, FiShoppingCart, FiHeart, FiTruck, FiShield, FiRefreshCw, FiChev
 import { motion } from "framer-motion";
 import { fetchProductsFromAPI, Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import ProductCard from "@/components/ProductCard";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -11,6 +12,7 @@ import Footer from "@/components/layout/Footer";
 const ProductDetailPage = () => {
   const { id } = useParams();
   const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
   const [qty, setQty] = useState(1);
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
@@ -115,8 +117,11 @@ const ProductDetailPage = () => {
               >
                 <FiShoppingCart /> Add to Cart
               </button>
-              <button className="px-4 py-3 border border-border rounded-lg text-foreground hover:bg-muted transition-colors">
-                <FiHeart className="w-5 h-5" />
+              <button
+                onClick={() => isWishlisted(product.id) ? removeFromWishlist(product.id) : addToWishlist(product)}
+                className={`px-4 py-3 border rounded-lg transition-colors ${isWishlisted(product.id) ? "border-destructive text-destructive bg-destructive/10" : "border-border text-foreground hover:bg-muted"}`}
+              >
+                <FiHeart className={`w-5 h-5 ${isWishlisted(product.id) ? "fill-destructive" : ""}`} />
               </button>
             </div>
 
