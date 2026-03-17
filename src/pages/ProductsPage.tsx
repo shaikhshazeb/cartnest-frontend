@@ -28,15 +28,16 @@ const ProductsPage = () => {
 
   useEffect(() => {
     setLoading(true);
-    fetchProductsFromAPI()
+    // slug se actual category name nikalo backend ke liye
+    const categoryName = categories.find(c => c.slug === selectedCategory)?.name;
+    fetchProductsFromAPI(categoryName)
       .then(setAllProducts)
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCategory]); // category change hone par refetch
 
   const filtered = useMemo(() => {
     let result = [...allProducts];
-    if (selectedCategory) result = result.filter((p) => p.category === selectedCategory);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((p) => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
@@ -50,7 +51,7 @@ const ProductsPage = () => {
       case "reviews": result.sort((a, b) => b.reviews - a.reviews); break;
     }
     return result;
-  }, [allProducts, selectedCategory, searchQuery, sort, priceRange, minRating]);
+  }, [allProducts, searchQuery, sort, priceRange, minRating]);
 
   const selectCategory = (slug: string) => {
     const params = new URLSearchParams(searchParams);
