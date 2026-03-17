@@ -7,12 +7,108 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { toast } from "sonner";
 
+const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
+const RAZORPAY_KEY_ID = "rzp_test_LqWBBDbgwot5lh"; // Replace with new key after regenerating
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const CheckoutPage = () => {
   const { items, totalPrice, clearCart } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] = useState("online");
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", city: "", zip: "" });
+
+  const totalWithTax = totalPrice * 1.08;
+
+  const handleRazorpayPayment = async () => {
+    if (!user) {
+      toast.error("Please login to continue");
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Step 1 — Create order on backend
+      const res = await fetch(`${BASE_URL}/api/payment/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user.username,
+          totalAmount: totalWithTax.toFixed(2),
+        }),
+      });
+
+      const razorpayOrderId = await res.text();
+
+      if (!res.ok) {
+        toast.error("Failed to create order");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2 — Open Razorpay checkout
+      const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: Math.round(totalWithTax * 100),
+        currency: "INR",
+        name: "CartNest",
+        description: "Order Payment",
+        order_id: razorpayOrderId,
+        prefill: {
+          name: form.name || user.username,
+          email: form.email || user.email,
+          contact: form.phone,
+        },
+        theme: { color: "#16a34a" },
+        handler: async (response: any) => {
+          // Step 3 — Verify payment on backend
+          try {
+            const verifyRes = await fetch(`${BASE_URL}/api/payment/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username: user.username,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+
+            if (verifyRes.ok) {
+              toast.success("Payment successful! 🎉 Order placed.");
+              clearCart();
+              navigate("/");
+            } else {
+              toast.error("Payment verification failed");
+            }
+          } catch {
+            toast.error("Payment verification error");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info("Payment cancelled");
+            setLoading(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      setLoading(false);
+
+    } catch (err) {
+      toast.error("Something went wrong");
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,9 +116,14 @@ const CheckoutPage = () => {
       toast.error("Please fill in all required fields");
       return;
     }
-    toast.success("Order placed successfully! 🎉");
-    clearCart();
-    navigate("/");
+    if (paymentMethod === "online") {
+      handleRazorpayPayment();
+    } else {
+      // COD
+      toast.success("Order placed successfully! 🎉");
+      clearCart();
+      navigate("/");
+    }
   };
 
   if (items.length === 0) {
@@ -77,8 +178,8 @@ const CheckoutPage = () => {
               <h2 className="font-bold text-foreground mb-4">Payment Method</h2>
               <div className="space-y-3">
                 {[
+                  { value: "online", label: "Online Payment", desc: "Credit/Debit Card, UPI, NetBanking via Razorpay" },
                   { value: "cod", label: "Cash on Delivery", desc: "Pay when you receive" },
-                  { value: "online", label: "Online Payment", desc: "Credit/Debit Card, UPI" },
                 ].map((m) => (
                   <label key={m.value} className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === m.value ? "border-primary bg-accent" : "border-border hover:bg-muted"}`}>
                     <input type="radio" name="payment" value={m.value} checked={paymentMethod === m.value} onChange={(e) => setPaymentMethod(e.target.value)} className="accent-primary" />
@@ -110,13 +211,18 @@ const CheckoutPage = () => {
             <div className="border-t border-border pt-3 space-y-2 text-sm">
               <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>${totalPrice.toFixed(2)}</span></div>
               <div className="flex justify-between text-muted-foreground"><span>Shipping</span><span className="text-success">Free</span></div>
-              <div className="flex justify-between text-muted-foreground"><span>Tax</span><span>${(totalPrice * 0.08).toFixed(2)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Tax (8%)</span><span>${(totalPrice * 0.08).toFixed(2)}</span></div>
               <div className="border-t border-border pt-2 flex justify-between font-bold text-foreground text-lg">
-                <span>Total</span><span>${(totalPrice * 1.08).toFixed(2)}</span>
+                <span>Total</span><span>${totalWithTax.toFixed(2)}</span>
               </div>
             </div>
-            <button type="submit" className="w-full mt-6 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity">
-              <FiLock className="w-4 h-4" /> Place Order
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-6 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              <FiLock className="w-4 h-4" />
+              {loading ? "Processing..." : paymentMethod === "online" ? "Pay with Razorpay" : "Place Order"}
             </button>
             <p className="text-xs text-muted-foreground text-center mt-3">🔒 Your payment information is secure</p>
           </div>
