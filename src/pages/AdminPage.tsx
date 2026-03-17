@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiDollarSign } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
-import { products } from "@/data/products";
+import { fetchProductsFromAPI, Product } from "@/data/products";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: FiBarChart2 },
@@ -45,11 +45,15 @@ const statusColors: Record<string, string> = {
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
   const { logout } = useAuth();
+
+  useEffect(() => {
+    fetchProductsFromAPI().then(setProducts).catch(() => setProducts([]));
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 w-64 green-gradient text-primary-foreground flex flex-col transition-transform`}>
         <div className="flex items-center justify-between p-5 border-b border-primary-foreground/10">
           <Link to="/" className="flex items-center gap-0.5">
@@ -72,16 +76,13 @@ const AdminPage = () => {
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 min-w-0">
         <header className="bg-card border-b border-border px-5 md:px-8 h-16 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden"><FiMenu className="w-5 h-5" /></button>
             <h1 className="font-bold text-lg text-foreground capitalize">{activeTab}</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">A</div>
-          </div>
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">A</div>
         </header>
 
         <main className="p-5 md:p-8">
@@ -92,16 +93,13 @@ const AdminPage = () => {
                   <div key={s.label} className="bg-card border border-border rounded-xl p-5 hover-lift">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
-                      <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center`}>
-                        <s.icon className="w-4 h-4" />
-                      </div>
+                      <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center`}><s.icon className="w-4 h-4" /></div>
                     </div>
                     <p className="text-2xl font-black text-foreground">{s.value}</p>
                     <span className="text-xs text-success flex items-center gap-1 mt-1.5 font-medium"><FiTrendingUp className="w-3 h-3" />{s.change}</span>
                   </div>
                 ))}
               </div>
-
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="font-bold text-foreground mb-5 text-lg">Recent Orders</h3>
                 <div className="overflow-x-auto">

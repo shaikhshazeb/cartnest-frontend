@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiStar, FiShoppingCart, FiHeart, FiTruck, FiShield, FiRefreshCw, FiChevronRight } from "react-icons/fi";
 import { motion } from "framer-motion";
-import { getProductById, products } from "@/data/products";
+import { fetchProductsFromAPI, Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import ProductCard from "@/components/ProductCard";
 import Navbar from "@/components/layout/Navbar";
@@ -10,9 +10,33 @@ import Footer from "@/components/layout/Footer";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const product = getProductById(Number(id));
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProductsFromAPI().then((products) => {
+      const found = products.find((p) => p.id === Number(id)) || null;
+      setProduct(found);
+      if (found) {
+        setRelated(products.filter((p) => p.category === found.category && p.id !== found.id).slice(0, 4));
+      }
+    }).finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container py-20 text-center">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded mx-auto" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -28,13 +52,10 @@ const ProductDetailPage = () => {
   }
 
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
-      {/* Breadcrumb */}
       <div className="container py-3">
         <nav className="flex items-center gap-1 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-primary">Home</Link>
@@ -47,12 +68,10 @@ const ProductDetailPage = () => {
 
       <div className="container pb-12">
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Image */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border border-border overflow-hidden">
             <img src={product.image} alt={product.title} className="w-full aspect-square object-cover" />
           </motion.div>
 
-          {/* Info */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="space-y-5">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{product.title}</h1>
@@ -78,22 +97,6 @@ const ProductDetailPage = () => {
 
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
 
-            {/* Specs */}
-            {product.specs && (
-              <div className="bg-muted rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-foreground mb-2">Specifications</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(product.specs).map(([k, v]) => (
-                    <div key={k} className="text-sm">
-                      <span className="text-muted-foreground">{k}: </span>
-                      <span className="font-medium text-foreground">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quantity + Actions */}
             <div className="flex items-center gap-3">
               <div className="flex items-center border border-border rounded-lg">
                 <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-2 text-foreground hover:bg-muted transition-colors">−</button>
@@ -117,7 +120,6 @@ const ProductDetailPage = () => {
               </button>
             </div>
 
-            {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3 pt-2">
               {[
                 { icon: FiTruck, text: "Free Delivery" },
@@ -133,14 +135,13 @@ const ProductDetailPage = () => {
           </motion.div>
         </div>
 
-        {/* Reviews mock */}
         <section className="mt-12 border-t border-border pt-8">
           <h2 className="text-xl font-bold text-foreground mb-6">Customer Reviews</h2>
           <div className="space-y-4">
             {[
-              { name: "Sarah M.", rating: 5, text: "Absolutely love this product! Exceeded my expectations. Great quality and fast shipping.", date: "2 days ago" },
-              { name: "James K.", rating: 4, text: "Very good product for the price. Would recommend to others. Minor improvement could be made to packaging.", date: "1 week ago" },
-              { name: "Emily R.", rating: 5, text: "Perfect! Exactly as described. Will definitely buy from CartNest again.", date: "2 weeks ago" },
+              { name: "Sarah M.", rating: 5, text: "Absolutely love this product! Exceeded my expectations.", date: "2 days ago" },
+              { name: "James K.", rating: 4, text: "Very good product for the price. Would recommend to others.", date: "1 week ago" },
+              { name: "Emily R.", rating: 5, text: "Perfect! Exactly as described. Will definitely buy again.", date: "2 weeks ago" },
             ].map((review, i) => (
               <div key={i} className="bg-card border border-border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -157,7 +158,6 @@ const ProductDetailPage = () => {
           </div>
         </section>
 
-        {/* Related */}
         {related.length > 0 && (
           <section className="mt-12">
             <h2 className="text-xl font-bold text-foreground mb-6">Related Products</h2>

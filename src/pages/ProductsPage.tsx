@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiFilter, FiX } from "react-icons/fi";
 import ProductCard from "@/components/ProductCard";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { products, categories } from "@/data/products";
+import { categories, fetchProductsFromAPI, Product } from "@/data/products";
 
 const sortOptions = [
   { value: "relevance", label: "Relevance" },
@@ -18,14 +18,24 @@ const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState("relevance");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [minRating, setMinRating] = useState(0);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const selectedCategory = searchParams.get("category") || "";
   const searchQuery = searchParams.get("search") || "";
 
+  useEffect(() => {
+    setLoading(true);
+    fetchProductsFromAPI()
+      .then(setAllProducts)
+      .catch(() => setAllProducts([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   const filtered = useMemo(() => {
-    let result = [...products];
+    let result = [...allProducts];
     if (selectedCategory) result = result.filter((p) => p.category === selectedCategory);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -33,7 +43,6 @@ const ProductsPage = () => {
     }
     result = result.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
     if (minRating > 0) result = result.filter((p) => p.rating >= minRating);
-
     switch (sort) {
       case "price-asc": result.sort((a, b) => a.price - b.price); break;
       case "price-desc": result.sort((a, b) => b.price - a.price); break;
@@ -41,7 +50,7 @@ const ProductsPage = () => {
       case "reviews": result.sort((a, b) => b.reviews - a.reviews); break;
     }
     return result;
-  }, [selectedCategory, searchQuery, sort, priceRange, minRating]);
+  }, [allProducts, selectedCategory, searchQuery, sort, priceRange, minRating]);
 
   const selectCategory = (slug: string) => {
     const params = new URLSearchParams(searchParams);
@@ -71,13 +80,11 @@ const ProductsPage = () => {
         </div>
 
         <div className="flex gap-6">
-          {/* Sidebar filters */}
           <aside className={`${showFilters ? "fixed inset-0 z-50 bg-card p-6 overflow-auto" : "hidden"} md:block md:static md:w-60 flex-shrink-0`}>
             <div className="flex items-center justify-between md:hidden mb-4">
               <h3 className="font-bold">Filters</h3>
               <button onClick={() => setShowFilters(false)}><FiX className="w-5 h-5" /></button>
             </div>
-
             <div className="space-y-6">
               <div>
                 <h4 className="font-semibold text-sm mb-3 text-foreground">Categories</h4>
@@ -92,7 +99,6 @@ const ProductsPage = () => {
                   ))}
                 </div>
               </div>
-
               <div>
                 <h4 className="font-semibold text-sm mb-3 text-foreground">Price Range</h4>
                 <div className="flex gap-2">
@@ -100,7 +106,6 @@ const ProductsPage = () => {
                   <input type="number" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], +e.target.value])} className="w-full px-2 py-1.5 text-sm border border-border rounded bg-card text-foreground" placeholder="Max" />
                 </div>
               </div>
-
               <div>
                 <h4 className="font-semibold text-sm mb-3 text-foreground">Min Rating</h4>
                 <div className="space-y-1">
@@ -114,9 +119,12 @@ const ProductsPage = () => {
             </div>
           </aside>
 
-          {/* Product grid */}
           <div className="flex-1">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-lg font-medium text-muted-foreground">No products found</p>
                 <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>

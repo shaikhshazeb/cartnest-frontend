@@ -1,8 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiArrowRight, FiTruck, FiShield, FiRefreshCw, FiHeadphones, FiZap, FiStar } from "react-icons/fi";
 import ProductCard from "@/components/ProductCard";
-import { categories, getFeaturedProducts, getTrendingProducts, getBestSellers } from "@/data/products";
+import { categories, fetchProductsFromAPI, Product } from "@/data/products";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -14,9 +15,19 @@ const features = [
 ];
 
 const HomePage = () => {
-  const featured = getFeaturedProducts().slice(0, 4);
-  const trending = getTrendingProducts().slice(0, 4);
-  const bestSellers = getBestSellers().slice(0, 4);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProductsFromAPI()
+      .then(setAllProducts)
+      .catch(() => setAllProducts([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const featured = allProducts.filter(p => p.rating >= 4.5).slice(0, 4);
+  const trending = allProducts.filter(p => p.badge === "hot").slice(0, 4);
+  const bestSellers = [...allProducts].sort((a, b) => b.reviews - a.reviews).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-background">
@@ -150,7 +161,13 @@ const HomePage = () => {
           </div>
           <Link to="/products" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">View All <FiArrowRight className="w-3 h-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{featured.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[1,2,3,4].map(i => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{featured.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        )}
       </section>
 
       {/* Promo banner */}
@@ -180,7 +197,13 @@ const HomePage = () => {
           </div>
           <Link to="/products" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">View All <FiArrowRight className="w-3 h-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{trending.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[1,2,3,4].map(i => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{trending.length > 0 ? trending.map((p, i) => <ProductCard key={p.id} product={p} index={i} />) : allProducts.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        )}
       </section>
 
       {/* Best Sellers */}
@@ -192,7 +215,13 @@ const HomePage = () => {
           </div>
           <Link to="/products" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">View All <FiArrowRight className="w-3 h-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{bestSellers.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[1,2,3,4].map(i => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{bestSellers.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}</div>
+        )}
       </section>
 
       <Footer />
