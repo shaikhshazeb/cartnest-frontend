@@ -338,14 +338,8 @@ export default function VoiceAssistant() {
   }, [endCall]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // OPENAI CHAT ENGINE
-  // Sends conversation history to GPT-4.1 and streams the reply back.
-  // Voice mode is completely unaffected — this block is chat-only.
-  // ═══════════════════════════════════════════════════════════════════════════
 
   // ── OpenAI credentials ───────────────────────────────────────────────────────
-  // Replace the placeholder with your actual OpenAI API key.
-  // For production, load this from an environment variable:
   //   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
   // ── Groq credentials (free) ─────────────────────────────────────────────────
   // .env file mein add karo: VITE_GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxx
