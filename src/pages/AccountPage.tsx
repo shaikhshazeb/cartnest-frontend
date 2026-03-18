@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FiUser, FiPackage, FiHeart, FiSettings, FiLogOut, FiShoppingCart, FiTrash2 } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
@@ -7,16 +7,24 @@ import { useCart } from "@/context/CartContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
-const mockOrders = [
-  { id: "ORD-2024-001", date: "Mar 5, 2026", total: 129.99, status: "Delivered", items: 2 },
-  { id: "ORD-2024-002", date: "Mar 2, 2026", total: 79.99, status: "Shipped", items: 1 },
-  { id: "ORD-2024-003", date: "Feb 28, 2026", total: 349.99, status: "Processing", items: 3 },
-];
+const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
+
+interface OrderProduct {
+  order_id: string;
+  product_id: number;
+  name: string;
+  description: string;
+  image_url: string;
+  status: string;
+  quantity: number;
+  price_per_unit: number;
+  total_price: number;
+}
 
 const statusColors: Record<string, string> = {
-  Delivered: "bg-success/10 text-success",
-  Shipped: "bg-info/10 text-info",
-  Processing: "bg-warning/10 text-warning",
+  SUCCESS: "bg-success/10 text-success",
+  PENDING: "bg-warning/10 text-warning",
+  FAILED: "bg-destructive/10 text-destructive",
 };
 
 const AccountPage = () => {
@@ -24,6 +32,8 @@ const AccountPage = () => {
   const { items: wishlistItems, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
   const [activeTab, setActiveTab] = useState("profile");
+  const [orders, setOrders] = useState<OrderProduct[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const tabs = [
     { icon: FiUser, label: "Profile", id: "profile" },
@@ -31,6 +41,25 @@ const AccountPage = () => {
     { icon: FiHeart, label: "Wishlist", id: "wishlist" },
     { icon: FiSettings, label: "Settings", id: "settings" },
   ];
+
+  // Fetch orders when orders tab is opened
+  useEffect(() => {
+    if (activeTab === "orders" && user) {
+      setOrdersLoading(true);
+      fetch(`${BASE_URL}/api/orders?username=${user.username}`)
+        .then(res => res.json())
+        .then(data => setOrders(data.products || []))
+        .catch(() => setOrders([]))
+        .finally(() => setOrdersLoading(false));
+    }
+  }, [activeTab, user]);
+
+  // Group orders by order_id
+  const groupedOrders = orders.reduce((acc, item) => {
+    if (!acc[item.order_id]) acc[item.order_id] = [];
+    acc[item.order_id].push(item);
+    return acc;
+  }, {} as Record<string, OrderProduct[]>);
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,21 +118,58 @@ const AccountPage = () => {
             {/* Orders Tab */}
             {activeTab === "orders" && (
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="font-bold text-foreground mb-4">Recent Orders</h2>
-                <div className="space-y-3">
-                  {mockOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm text-foreground">{order.id}</p>
-                        <p className="text-xs text-muted-foreground">{order.date} · {order.items} items</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">₹{order.total}</p>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[order.status]}`}>{order.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="font-bold text-foreground mb-4">My Orders</h2>
+                {ordersLoading ? (
+                  <div className="space-y-3">
+                    {[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}
+                  </div>
+                ) : Object.keys(groupedOrders).length === 0 ? (
+                  <div className="text-center py-12">
+                    <FiPackage className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">No orders yet</p>
+                    <Link to="/products" className="text-primary text-sm hover:underline mt-2 inline-block">Start shopping</Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(groupedOrders).map(([orderId, items]) => {
+                      const totalAmount = items.reduce((sum, item) => sum + Number(item.total_price), 0);
+                      return (
+                        <div key={orderId} className="border border-border rounded-lg overflow-hidden">
+                          {/* Order header */}
+                          <div className="flex items-center justify-between p-4 bg-accent/30">
+                            <div>
+                              <p className="font-semibold text-sm text-foreground">Order ID: <span className="text-primary">{orderId.slice(0, 20)}...</span></p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{items.length} item{items.length > 1 ? "s" : ""}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-foreground">₹{totalAmount.toFixed(2)}</p>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[items[0]?.status as string] || "bg-success/10 text-success"}`}>{items[0]?.status}</span>
+                            </div>
+                          </div>
+                          {/* Order items */}
+                          <div className="divide-y divide-border">
+                            {items.map((item, i) => (
+                              <div key={i} className="flex gap-3 p-4">
+                                <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-lg border border-border" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground line-clamp-1">{item.name}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
+                                  <div className="flex items-center gap-3 mt-1.5">
+                                    <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+                                    <span className="text-xs text-muted-foreground">₹{item.price_per_unit}/unit</span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-bold text-foreground">₹{Number(item.total_price).toFixed(2)}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -136,10 +202,7 @@ const AccountPage = () => {
                             >
                               <FiShoppingCart className="w-3 h-3" /> Add to Cart
                             </button>
-                            <button
-                              onClick={() => removeFromWishlist(item.id)}
-                              className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                            >
+                            <button onClick={() => removeFromWishlist(item.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors">
                               <FiTrash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
