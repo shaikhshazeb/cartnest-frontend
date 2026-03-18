@@ -90,8 +90,8 @@ const ProductDetailPage = () => {
 
             <div className="border-t border-b border-border py-4">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-black text-foreground">${product.price}</span>
-                <span className="text-lg text-muted-foreground line-through">${product.originalPrice}</span>
+                <span className="text-3xl font-black text-foreground">₹{product.price}</span>
+                <span className="text-lg text-muted-foreground line-through">₹{product.originalPrice}</span>
                 <span className="text-sm font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded">{discount}% OFF</span>
               </div>
               <p className="text-xs text-success font-medium mt-1">Inclusive of all taxes</p>

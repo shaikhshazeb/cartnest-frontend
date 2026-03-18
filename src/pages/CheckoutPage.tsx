@@ -204,16 +204,16 @@ const CheckoutPage = () => {
                     <p className="text-xs text-foreground line-clamp-1">{item.title}</p>
                     <p className="text-xs text-muted-foreground">Qty: {item.quantity} × ${item.price}</p>
                   </div>
-                  <span className="text-sm font-medium text-foreground">${(item.price * item.quantity).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-foreground">₹{(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t border-border pt-3 space-y-2 text-sm">
-              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>${totalPrice.toFixed(2)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>₹{totalPrice.toFixed(2)}</span></div>
               <div className="flex justify-between text-muted-foreground"><span>Shipping</span><span className="text-success">Free</span></div>
-              <div className="flex justify-between text-muted-foreground"><span>Tax (8%)</span><span>${(totalPrice * 0.08).toFixed(2)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Tax (8%)</span><span>₹{(totalPrice * 0.08).toFixed(2)}</span></div>
               <div className="border-t border-border pt-2 flex justify-between font-bold text-foreground text-lg">
-                <span>Total</span><span>${totalWithTax.toFixed(2)}</span>
+                <span>Total</span><span>₹{totalWithTax.toFixed(2)}</span>
               </div>
             </div>
             <button

@@ -13,7 +13,7 @@ const tabs = [
 ];
 
 const stats = [
-  { label: "Total Revenue", value: "$48,520", icon: FiDollarSign, change: "+12.5%", color: "bg-primary/10 text-primary" },
+  { label: "Total Revenue", value: "₹48,520", icon: FiDollarSign, change: "+12.5%", color: "bg-primary/10 text-primary" },
   { label: "Total Orders", value: "1,284", icon: FiShoppingBag, change: "+8.2%", color: "bg-secondary/20 text-secondary-foreground" },
   { label: "Total Products", value: "156", icon: FiPackage, change: "+3", color: "bg-accent text-accent-foreground" },
   { label: "Total Users", value: "3,842", icon: FiUsers, change: "+15.3%", color: "bg-info/10 text-info" },
@@ -112,7 +112,7 @@ const AdminPage = () => {
                         <tr key={o.id} className="border-b border-border last:border-0">
                           <td className="py-3.5 font-semibold text-foreground">{o.id}</td>
                           <td className="py-3.5 text-muted-foreground">{o.customer}</td>
-                          <td className="py-3.5 font-semibold text-foreground">${o.total}</td>
+                          <td className="py-3.5 font-semibold text-foreground">₹{o.total}</td>
                           <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status]}`}>{o.status}</span></td>
                           <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.payment]}`}>{o.payment}</span></td>
                         </tr>
@@ -146,7 +146,7 @@ const AdminPage = () => {
                             </div>
                           </td>
                           <td className="p-4 text-muted-foreground capitalize">{p.category}</td>
-                          <td className="p-4 font-semibold text-foreground">${p.price}</td>
+                          <td className="p-4 font-semibold text-foreground">₹{p.price}</td>
                           <td className="p-4 text-foreground">⭐ {p.rating}</td>
                           <td className="p-4">
                             <div className="flex gap-1.5">
@@ -193,7 +193,7 @@ const AdminPage = () => {
                         <td className="p-4 font-semibold text-foreground">{o.id}</td>
                         <td className="p-4 text-muted-foreground">{o.customer}</td>
                         <td className="p-4 text-muted-foreground">{o.date}</td>
-                        <td className="p-4 font-semibold text-foreground">${o.total}</td>
+                        <td className="p-4 font-semibold text-foreground">₹{o.total}</td>
                         <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status]}`}>{o.status}</span></td>
                         <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.payment]}`}>{o.payment}</span></td>
                       </tr>

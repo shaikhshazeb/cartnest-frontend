@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
 const features = [
-  { icon: FiTruck, title: "Free Shipping", desc: "On orders over $50" },
+  { icon: FiTruck, title: "Free Shipping", desc: "On orders over ₹500" },
   { icon: FiShield, title: "Secure Payment", desc: "100% protected" },
   { icon: FiRefreshCw, title: "Easy Returns", desc: "30-day policy" },
   { icon: FiHeadphones, title: "24/7 Support", desc: "Dedicated help" },
@@ -91,7 +91,7 @@ const HomePage = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-card-foreground">Free Delivery</p>
-                    <p className="text-[9px] text-muted-foreground">On $50+ orders</p>
+                    <p className="text-[9px] text-muted-foreground">On ₹500+ orders</p>
                   </div>
                 </div>
               </motion.div>

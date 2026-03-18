@@ -36,7 +36,7 @@ const CartPage = () => {
                       <Link to={`/product/${item.id}`} className="font-medium text-sm text-card-foreground hover:text-primary transition-colors line-clamp-2">
                         {item.title}
                       </Link>
-                      <p className="text-lg font-bold text-foreground mt-1">${(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-lg font-bold text-foreground mt-1">₹{(item.price * item.quantity).toFixed(2)}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <div className="flex items-center border border-border rounded">
                           <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1.5 hover:bg-muted transition-colors"><FiMinus className="w-3 h-3" /></button>
@@ -60,11 +60,11 @@ const CartPage = () => {
             <div className="bg-card border border-border rounded-lg p-6 h-fit sticky top-32">
               <h3 className="font-bold text-foreground mb-4">Order Summary</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>${totalPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>₹{totalPrice.toFixed(2)}</span></div>
                 <div className="flex justify-between text-muted-foreground"><span>Shipping</span><span className="text-success">Free</span></div>
-                <div className="flex justify-between text-muted-foreground"><span>Tax (est.)</span><span>${(totalPrice * 0.08).toFixed(2)}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>Tax (est.)</span><span>₹{(totalPrice * 0.08).toFixed(2)}</span></div>
                 <div className="border-t border-border pt-3 flex justify-between font-bold text-foreground text-lg">
-                  <span>Total</span><span>${(totalPrice * 1.08).toFixed(2)}</span>
+                  <span>Total</span><span>₹{(totalPrice * 1.08).toFixed(2)}</span>
                 </div>
               </div>
               <Link to="/checkout" className="w-full mt-6 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity">
