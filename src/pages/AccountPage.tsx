@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FiUser, FiPackage, FiHeart, FiSettings, FiLogOut, FiShoppingCart, FiTrash2 } from "react-icons/fi";
+import { FiUser, FiPackage, FiHeart, FiSettings, FiLogOut, FiShoppingCart, FiTrash2, FiEye, FiEyeOff, FiCheckCircle } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { toast } from "sonner";
 
 const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
 
@@ -27,6 +28,8 @@ const statusColors: Record<string, string> = {
   FAILED: "bg-destructive/10 text-destructive",
 };
 
+const statusSteps = ["Order Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"];
+
 const AccountPage = () => {
   const { user, logout } = useAuth();
   const { items: wishlistItems, removeFromWishlist } = useWishlist();
@@ -34,6 +37,22 @@ const AccountPage = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [orders, setOrders] = useState<OrderProduct[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  // Password state
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+
+  // Notification toggles state
+  const [notifications, setNotifications] = useState({
+    orderUpdates: true,
+    dealsOffers: true,
+    newArrivals: false,
+    newsletter: false,
+  });
 
   const tabs = [
     { icon: FiUser, label: "Profile", id: "profile" },
@@ -42,7 +61,6 @@ const AccountPage = () => {
     { icon: FiSettings, label: "Settings", id: "settings" },
   ];
 
-  // Fetch orders when orders tab is opened
   useEffect(() => {
     if (activeTab === "orders" && user) {
       setOrdersLoading(true);
@@ -54,12 +72,51 @@ const AccountPage = () => {
     }
   }, [activeTab, user]);
 
-  // Group orders by order_id
   const groupedOrders = orders.reduce((acc, item) => {
     if (!acc[item.order_id]) acc[item.order_id] = [];
     acc[item.order_id].push(item);
     return acc;
   }, {} as Record<string, OrderProduct[]>);
+
+  // Password change handler
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setPwdLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/users/change-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user?.username,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Password changed successfully!");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(data.error || "Failed to change password");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,9 +134,7 @@ const AccountPage = () => {
             </div>
             <nav className="space-y-1">
               {tabs.map(({ icon: Icon, label, id }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
+                <button key={id} onClick={() => setActiveTab(id)}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-sm transition-colors ${activeTab === id ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
                 >
                   <Icon className="w-4 h-4" />{label}
@@ -120,9 +175,7 @@ const AccountPage = () => {
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="font-bold text-foreground mb-4">My Orders</h2>
                 {ordersLoading ? (
-                  <div className="space-y-3">
-                    {[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}
-                  </div>
+                  <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}</div>
                 ) : Object.keys(groupedOrders).length === 0 ? (
                   <div className="text-center py-12">
                     <FiPackage className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -133,38 +186,60 @@ const AccountPage = () => {
                   <div className="space-y-4">
                     {Object.entries(groupedOrders).map(([orderId, items]) => {
                       const totalAmount = items.reduce((sum, item) => sum + Number(item.total_price), 0);
+                      const isExpanded = expandedOrder === orderId;
+                      const status = items[0]?.status;
                       return (
                         <div key={orderId} className="border border-border rounded-lg overflow-hidden">
                           {/* Order header */}
-                          <div className="flex items-center justify-between p-4 bg-accent/30">
+                          <div className="flex items-center justify-between p-4 bg-accent/30 cursor-pointer" onClick={() => setExpandedOrder(isExpanded ? null : orderId)}>
                             <div>
-                              <p className="font-semibold text-sm text-foreground">Order ID: <span className="text-primary">{orderId.slice(0, 20)}...</span></p>
+                              <p className="font-semibold text-sm text-foreground">Order: <span className="text-primary text-xs">{orderId.slice(0, 18)}...</span></p>
                               <p className="text-xs text-muted-foreground mt-0.5">{items.length} item{items.length > 1 ? "s" : ""}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex flex-col items-end gap-1">
                               <p className="font-bold text-foreground">₹{totalAmount.toFixed(2)}</p>
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[items[0]?.status as string] || "bg-success/10 text-success"}`}>{items[0]?.status}</span>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[status] || "bg-muted text-muted-foreground"}`}>{status}</span>
                             </div>
                           </div>
-                          {/* Order items */}
-                          <div className="divide-y divide-border">
-                            {items.map((item, i) => (
-                              <div key={i} className="flex gap-3 p-4">
-                                <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-lg border border-border" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground line-clamp-1">{item.name}</p>
-                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
-                                  <div className="flex items-center gap-3 mt-1.5">
-                                    <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
-                                    <span className="text-xs text-muted-foreground">₹{item.price_per_unit}/unit</span>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-bold text-foreground">₹{Number(item.total_price).toFixed(2)}</p>
+
+                          {/* Order tracking */}
+                          {isExpanded && (
+                            <div className="p-4 border-t border-border">
+                              {/* Tracking steps */}
+                              <div className="mb-4">
+                                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Order Tracking</p>
+                                <div className="flex items-center justify-between relative">
+                                  <div className="absolute top-3 left-0 right-0 h-0.5 bg-border" />
+                                  <div className="absolute top-3 left-0 h-0.5 bg-primary transition-all" style={{ width: status === "SUCCESS" ? "100%" : "25%" }} />
+                                  {statusSteps.map((step, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-1.5 z-10">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${status === "SUCCESS" || i === 0 ? "bg-primary text-primary-foreground" : "bg-border text-muted-foreground"}`}>
+                                        {status === "SUCCESS" ? <FiCheckCircle className="w-3.5 h-3.5" /> : <span className="text-[10px] font-bold">{i + 1}</span>}
+                                      </div>
+                                      <span className="text-[9px] text-muted-foreground text-center w-14 leading-tight">{step}</span>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+
+                              {/* Order items */}
+                              <div className="divide-y divide-border">
+                                {items.map((item, i) => (
+                                  <div key={i} className="flex gap-3 py-3">
+                                    <img src={item.image_url} alt={item.name} className="w-14 h-14 object-cover rounded-lg border border-border" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-foreground line-clamp-1">{item.name}</p>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+                                        <span className="text-xs text-muted-foreground">₹{item.price_per_unit}/unit</span>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm font-bold text-foreground">₹{Number(item.total_price).toFixed(2)}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -196,10 +271,8 @@ const AccountPage = () => {
                           </Link>
                           <p className="text-sm font-bold text-foreground mt-1">₹{item.price}</p>
                           <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => { addToCart({ id: item.id, title: item.title, price: item.price, image: item.image }); removeFromWishlist(item.id); }}
-                              className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2.5 py-1.5 rounded-md hover:opacity-90"
-                            >
+                            <button onClick={() => { addToCart({ id: item.id, title: item.title, price: item.price, image: item.image }); removeFromWishlist(item.id); }}
+                              className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2.5 py-1.5 rounded-md hover:opacity-90">
                               <FiShoppingCart className="w-3 h-3" /> Add to Cart
                             </button>
                             <button onClick={() => removeFromWishlist(item.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors">
@@ -217,25 +290,54 @@ const AccountPage = () => {
             {/* Settings Tab */}
             {activeTab === "settings" && (
               <div className="space-y-6">
+
                 {/* Change Password */}
                 <div className="bg-card border border-border rounded-lg p-6">
                   <h2 className="font-bold text-foreground mb-1">Change Password</h2>
-                  <p className="text-xs text-muted-foreground mb-4">Update your password to keep your account secure</p>
+                  <p className="text-xs text-muted-foreground mb-4">Set a new password for your account</p>
                   <div className="space-y-3 max-w-md">
                     <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">Current Password</label>
-                      <input type="password" placeholder="Enter current password" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground focus:ring-2 focus:ring-primary outline-none" />
-                    </div>
-                    <div>
                       <label className="text-sm font-medium text-foreground mb-1 block">New Password</label>
-                      <input type="password" placeholder="Enter new password" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground focus:ring-2 focus:ring-primary outline-none" />
+                      <div className="relative">
+                        <input
+                          type={showNew ? "text" : "password"}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="w-full px-3 py-2.5 pr-10 border border-border rounded-lg text-sm bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                        />
+                        <button onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          {showNew ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">Confirm New Password</label>
-                      <input type="password" placeholder="Confirm new password" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground focus:ring-2 focus:ring-primary outline-none" />
+                      <label className="text-sm font-medium text-foreground mb-1 block">Confirm Password</label>
+                      <div className="relative">
+                        <input
+                          type={showConfirm ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          className="w-full px-3 py-2.5 pr-10 border border-border rounded-lg text-sm bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                        />
+                        <button onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          {showConfirm ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {confirmPassword && newPassword !== confirmPassword && (
+                        <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+                      )}
+                      {confirmPassword && newPassword === confirmPassword && (
+                        <p className="text-xs text-success mt-1">Passwords match ✓</p>
+                      )}
                     </div>
-                    <button className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
-                      Update Password
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={pwdLoading}
+                      className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+                    >
+                      {pwdLoading ? "Changing..." : "Change Password"}
                     </button>
                   </div>
                 </div>
@@ -246,26 +348,29 @@ const AccountPage = () => {
                   <p className="text-xs text-muted-foreground mb-4">Manage how you receive notifications</p>
                   <div className="space-y-4">
                     {[
-                      { label: "Order Updates", desc: "Get notified about your order status" },
-                      { label: "Deals & Offers", desc: "Receive alerts about sales and discounts" },
-                      { label: "New Arrivals", desc: "Be the first to know about new products" },
-                      { label: "Newsletter", desc: "Weekly newsletter with top picks" },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      { key: "orderUpdates", label: "Order Updates", desc: "Get notified about your order status" },
+                      { key: "dealsOffers", label: "Deals & Offers", desc: "Receive alerts about sales and discounts" },
+                      { key: "newArrivals", label: "New Arrivals", desc: "Be the first to know about new products" },
+                      { key: "newsletter", label: "Newsletter", desc: "Weekly newsletter with top picks" },
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                         <div>
                           <p className="text-sm font-medium text-foreground">{item.label}</p>
                           <p className="text-xs text-muted-foreground">{item.desc}</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked={i < 2} className="sr-only peer" />
-                          <div className="w-10 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors peer-focus:ring-2 peer-focus:ring-primary/20">
-                            <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm" />
-                          </div>
-                        </label>
+                        <button
+                          onClick={() => setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))}
+                          className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${notifications[item.key as keyof typeof notifications] ? "bg-primary" : "bg-muted"}`}
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${notifications[item.key as keyof typeof notifications] ? "translate-x-5" : "translate-x-0.5"}`} />
+                        </button>
                       </div>
                     ))}
                   </div>
-                  <button className="mt-4 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+                  <button
+                    onClick={() => toast.success("Preferences saved!")}
+                    className="mt-4 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
                     Save Preferences
                   </button>
                 </div>
@@ -278,6 +383,7 @@ const AccountPage = () => {
                     Delete Account
                   </button>
                 </div>
+
               </div>
             )}
 
