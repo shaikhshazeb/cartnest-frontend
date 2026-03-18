@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FiSearch, FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiChevronDown, FiLogOut } from "react-icons/fi";
+import { FiSearch, FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiChevronDown, FiLogOut, FiSun, FiMoon } from "react-icons/fi";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useTheme } from "@/context/ThemeContext";
 import { categories } from "@/data/products";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,6 +15,7 @@ const Navbar = () => {
   const { totalItems } = useCart();
   const { totalItems: wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
@@ -29,10 +31,10 @@ const Navbar = () => {
       {/* Top bar */}
       <div className="green-gradient text-primary-foreground text-xs py-2">
         <div className="container flex justify-between items-center">
-          <span className="flex items-center gap-1.5">🚚 Free shipping on orders over $50</span>
+          <span className="flex items-center gap-1.5">🚚 Free shipping on orders over ₹500</span>
           <div className="hidden md:flex items-center gap-4">
             <Link to="/products" className="hover:text-secondary transition-colors">Sell on CartNest</Link>
-            <Link to="/account/orders" className="hover:text-secondary transition-colors">Track Order</Link>
+            <Link to="/account" className="hover:text-secondary transition-colors">Track Order</Link>
           </div>
         </div>
       </div>
@@ -84,6 +86,15 @@ const Navbar = () => {
                 <span className="hidden lg:inline font-medium">Login</span>
               </Link>
             )}
+
+            {/* Dark/Light mode toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-accent transition-colors text-foreground hover:text-primary"
+              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {isDark ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
+            </button>
 
             {/* Wishlist icon with count */}
             <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent hidden md:block">
@@ -191,20 +202,28 @@ const Navbar = () => {
               <div className="border-t border-border pt-3 space-y-1">
                 {isAuthenticated ? (
                   <>
-                    <Link to="/account" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium" onClick={() => setMobileOpen(false)}>
+                    <Link to="/account" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground" onClick={() => setMobileOpen(false)}>
                       <FiUser /> My Account
                     </Link>
-                    <Link to="/wishlist" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium" onClick={() => setMobileOpen(false)}>
+                    <Link to="/wishlist" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground" onClick={() => setMobileOpen(false)}>
                       <FiHeart /> Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                     </Link>
+                    <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground w-full">
+                      {isDark ? <FiSun /> : <FiMoon />} {isDark ? "Light Mode" : "Dark Mode"}
+                    </button>
                     <button onClick={() => { logout(); setMobileOpen(false); }} className="flex items-center gap-2 px-3 py-2.5 text-sm text-destructive font-medium">
                       <FiLogOut /> Logout
                     </button>
                   </>
                 ) : (
-                  <Link to="/login" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium" onClick={() => setMobileOpen(false)}>
-                    <FiUser /> Login / Register
-                  </Link>
+                  <>
+                    <Link to="/login" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground" onClick={() => setMobileOpen(false)}>
+                      <FiUser /> Login / Register
+                    </Link>
+                    <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground w-full">
+                      {isDark ? <FiSun /> : <FiMoon />} {isDark ? "Light Mode" : "Dark Mode"}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
