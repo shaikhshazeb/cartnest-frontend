@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiDollarSign } from "react-icons/fi";
+import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiDollarSign, FiSave, FiAlertTriangle } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
 import { fetchProductsFromAPI, Product } from "@/data/products";
+import { toast } from "sonner";
+
+const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: FiBarChart2 },
@@ -13,11 +16,47 @@ const tabs = [
 ];
 
 const stats = [
-  { label: "Total Revenue", value: "₹48,520", icon: FiDollarSign, change: "+12.5%", color: "bg-primary/10 text-primary" },
-  { label: "Total Orders", value: "1,284", icon: FiShoppingBag, change: "+8.2%", color: "bg-secondary/20 text-secondary-foreground" },
-  { label: "Total Products", value: "156", icon: FiPackage, change: "+3", color: "bg-accent text-accent-foreground" },
-  { label: "Total Users", value: "3,842", icon: FiUsers, change: "+15.3%", color: "bg-info/10 text-info" },
+  { label: "Total Revenue", value: 48520, prefix: "₹", icon: FiDollarSign, change: "+12.5%", color: "bg-primary/10 text-primary" },
+  { label: "Total Orders", value: 1284, prefix: "", icon: FiShoppingBag, change: "+8.2%", color: "bg-secondary/20 text-secondary-foreground" },
+  { label: "Total Products", value: 156, prefix: "", icon: FiPackage, change: "+3", color: "bg-accent text-accent-foreground" },
+  { label: "Total Users", value: 3842, prefix: "", icon: FiUsers, change: "+15.3%", color: "bg-info/10 text-info" },
 ];
+
+const AnimatedCounter = ({ target, prefix = "" }: { target: number; prefix?: string }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started.current) {
+        started.current = true;
+        const duration = 1800;
+        const steps = 60;
+        const increment = target / steps;
+        let current = 0;
+        const timer = setInterval(() => {
+          current += increment;
+          if (current >= target) {
+            setCount(target);
+            clearInterval(timer);
+          } else {
+            setCount(Math.floor(current));
+          }
+        }, duration / steps);
+      }
+    }, { threshold: 0.3 });
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return (
+    <span ref={ref}>
+      {prefix}{count.toLocaleString("en-IN")}
+    </span>
+  );
+};
 
 const mockOrders = [
   { id: "ORD-001", customer: "John Doe", total: 129.99, status: "Delivered", payment: "Paid", date: "Mar 8" },
@@ -42,18 +81,234 @@ const statusColors: Record<string, string> = {
   Blocked: "bg-destructive/10 text-destructive",
 };
 
+const categories = [
+  { id: 1, name: "Electronics" },
+  { id: 2, name: "Fashion" },
+  { id: 3, name: "Clothing" },
+  { id: 4, name: "Home & Kitchen" },
+  { id: 5, name: "Books" },
+  { id: 6, name: "Sports" },
+  { id: 7, name: "Beauty" },
+  { id: 8, name: "Toys" },
+];
+
+interface ProductForm {
+  name: string;
+  description: string;
+  price: string;
+  stock: string;
+  categoryId: string;
+  imageUrl: string;
+}
+
+const emptyForm: ProductForm = { name: "", description: "", price: "", stock: "", categoryId: "1", imageUrl: "" };
+
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
   const { logout } = useAuth();
 
-  useEffect(() => {
-    fetchProductsFromAPI().then(setProducts).catch(() => setProducts([]));
-  }, []);
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadProducts = () => {
+    setLoading(true);
+    fetchProductsFromAPI().then(setProducts).catch(() => setProducts([])).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadProducts(); }, []);
+
+  const handleAdd = async () => {
+    if (!form.name || !form.price || !form.stock || !form.imageUrl) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/products/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          price: parseFloat(form.price),
+          stock: parseInt(form.stock),
+          categoryId: parseInt(form.categoryId),
+          imageUrl: form.imageUrl,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Product added successfully!");
+        setShowAddModal(false);
+        setForm(emptyForm);
+        loadProducts();
+      } else {
+        toast.error("Failed to add product");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!form.name || !form.price || !form.stock) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/products/edit`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: selectedProduct?.id,
+          name: form.name,
+          description: form.description,
+          price: parseFloat(form.price),
+          stock: parseInt(form.stock),
+          imageUrl: form.imageUrl,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Product updated successfully!");
+        setShowEditModal(false);
+        setForm(emptyForm);
+        loadProducts();
+      } else {
+        toast.error("Failed to update product");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/products/delete`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: selectedProduct?.id }),
+      });
+      if (res.ok) {
+        toast.success("Product deleted successfully!");
+        setShowDeleteModal(false);
+        loadProducts();
+      } else {
+        toast.error("Failed to delete product");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEdit = (p: Product) => {
+    setSelectedProduct(p);
+    setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image });
+    setShowEditModal(true);
+  };
+
+  const openDelete = (p: Product) => {
+    setSelectedProduct(p);
+    setShowDeleteModal(true);
+  };
+
+  const Modal = ({ title, onClose, onSubmit, submitLabel, submitColor = "bg-primary", children }: any) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="font-bold text-lg text-foreground">{title}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors"><FiX className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4">{children}</div>
+        <div className="flex gap-3 p-6 border-t border-border">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground hover:bg-muted transition-colors">Cancel</button>
+          <button onClick={onSubmit} disabled={submitting} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 ${submitColor}`}>
+            {submitting ? "Please wait..." : submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const FormField = ({ label, type = "text", value, onChange, placeholder, as: As = "input", children }: any) => (
+    <div>
+      <label className="text-sm font-medium text-foreground mb-1.5 block">{label}</label>
+      {As === "select" ? (
+        <select value={value} onChange={onChange} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
+          {children}
+        </select>
+      ) : As === "textarea" ? (
+        <textarea value={value} onChange={onChange} placeholder={placeholder} rows={3} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary resize-none" />
+      ) : (
+        <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary" />
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background flex">
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <Modal title="Add New Product" onClose={() => { setShowAddModal(false); setForm(emptyForm); }} onSubmit={handleAdd} submitLabel="Add Product">
+          <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
+          <FormField label="Description" as="textarea" value={form.description} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Enter description" />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Price (₹) *" type="number" value={form.price} onChange={(e: any) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
+            <FormField label="Stock *" type="number" value={form.stock} onChange={(e: any) => setForm({ ...form, stock: e.target.value })} placeholder="0" />
+          </div>
+          <FormField label="Category *" as="select" value={form.categoryId} onChange={(e: any) => setForm({ ...form, categoryId: e.target.value })}>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </FormField>
+          <FormField label="Image URL *" value={form.imageUrl} onChange={(e: any) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = 'none'} />}
+        </Modal>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <Modal title="Edit Product" onClose={() => { setShowEditModal(false); setForm(emptyForm); }} onSubmit={handleEdit} submitLabel="Save Changes">
+          <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
+          <FormField label="Description" as="textarea" value={form.description} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Enter description" />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Price (₹) *" type="number" value={form.price} onChange={(e: any) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
+            <FormField label="Stock *" type="number" value={form.stock} onChange={(e: any) => setForm({ ...form, stock: e.target.value })} placeholder="0" />
+          </div>
+          <FormField label="Image URL" value={form.imageUrl} onChange={(e: any) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = 'none'} />}
+        </Modal>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive">
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+              <FiAlertTriangle className="w-7 h-7 text-destructive" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground mb-1">Are you sure?</p>
+              <p className="text-sm text-muted-foreground">This will permanently delete <span className="font-semibold text-foreground">"{selectedProduct?.title}"</span>. This action cannot be undone.</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Sidebar */}
       <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 w-64 green-gradient text-primary-foreground flex flex-col transition-transform`}>
         <div className="flex items-center justify-between p-5 border-b border-primary-foreground/10">
           <Link to="/" className="flex items-center gap-0.5">
@@ -76,6 +331,7 @@ const AdminPage = () => {
         </div>
       </aside>
 
+      {/* Main */}
       <div className="flex-1 min-w-0">
         <header className="bg-card border-b border-border px-5 md:px-8 h-16 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-3">
@@ -86,6 +342,8 @@ const AdminPage = () => {
         </header>
 
         <main className="p-5 md:p-8">
+
+          {/* Dashboard */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
@@ -95,7 +353,7 @@ const AdminPage = () => {
                       <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
                       <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center`}><s.icon className="w-4 h-4" /></div>
                     </div>
-                    <p className="text-2xl font-black text-foreground">{s.value}</p>
+                    <p className="text-2xl font-black text-foreground"><AnimatedCounter target={s.value} prefix={s.prefix} /></p>
                     <span className="text-xs text-success flex items-center gap-1 mt-1.5 font-medium"><FiTrendingUp className="w-3 h-3" />{s.change}</span>
                   </div>
                 ))}
@@ -124,52 +382,69 @@ const AdminPage = () => {
             </div>
           )}
 
+          {/* Products */}
           {activeTab === "products" && (
             <div className="space-y-5">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground font-medium">{products.length} products</p>
-                <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform"><FiPlus className="w-4 h-4" />Add Product</button>
+                <button onClick={() => { setForm(emptyForm); setShowAddModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
+                  <FiPlus className="w-4 h-4" />Add Product
+                </button>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                      <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Category</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Rating</th><th className="p-4 font-semibold">Actions</th>
-                    </tr></thead>
-                    <tbody>
-                      {products.map((p) => (
-                        <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <img src={p.image} alt={p.title} className="w-11 h-11 rounded-lg object-cover border border-border" />
-                              <span className="font-semibold text-foreground line-clamp-1">{p.title}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-muted-foreground capitalize">{p.category}</td>
-                          <td className="p-4 font-semibold text-foreground">₹{p.price}</td>
-                          <td className="p-4 text-foreground">⭐ {p.rating}</td>
-                          <td className="p-4">
-                            <div className="flex gap-1.5">
-                              <button className="p-2 hover:bg-accent rounded-lg transition-colors"><FiEdit className="w-3.5 h-3.5 text-info" /></button>
-                              <button className="p-2 hover:bg-destructive/5 rounded-lg transition-colors"><FiTrash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {loading ? (
+                  <div className="p-8 space-y-3">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                        <th className="p-4 font-semibold">Product</th>
+                        <th className="p-4 font-semibold">Price</th>
+                        <th className="p-4 font-semibold">Actions</th>
+                      </tr></thead>
+                      <tbody>
+                        {products.map((p) => (
+                          <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <img src={p.image} alt={p.title} className="w-11 h-11 rounded-lg object-cover border border-border" />
+                                <div>
+                                  <span className="font-semibold text-foreground line-clamp-1">{p.title}</span>
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 font-bold text-foreground">₹{p.price}</td>
+                            <td className="p-4">
+                              <div className="flex gap-1.5">
+                                <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors">
+                                  <FiEdit className="w-3.5 h-3.5" />Edit
+                                </button>
+                                <button onClick={() => openDelete(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-semibold hover:bg-destructive/20 transition-colors">
+                                  <FiTrash2 className="w-3.5 h-3.5" />Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* Categories */}
           {activeTab === "categories" && (
             <div className="space-y-5">
-              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform"><FiPlus className="w-4 h-4" />Add Category</button>
+              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
+                <FiPlus className="w-4 h-4" />Add Category
+              </button>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {["Electronics", "Fashion", "Home & Kitchen", "Books", "Sports", "Beauty", "Toys", "Automotive"].map((cat) => (
-                  <div key={cat} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between hover-lift">
-                    <span className="font-semibold text-foreground text-sm">{cat}</span>
+                {categories.map((cat) => (
+                  <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between hover-lift">
+                    <span className="font-semibold text-foreground text-sm">{cat.name}</span>
                     <div className="flex gap-1">
                       <button className="p-1.5 hover:bg-accent rounded-lg transition-colors"><FiEdit className="w-3.5 h-3.5 text-info" /></button>
                       <button className="p-1.5 hover:bg-destructive/5 rounded-lg transition-colors"><FiTrash2 className="w-3.5 h-3.5 text-destructive" /></button>
@@ -180,6 +455,7 @@ const AdminPage = () => {
             </div>
           )}
 
+          {/* Orders */}
           {activeTab === "orders" && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -204,6 +480,7 @@ const AdminPage = () => {
             </div>
           )}
 
+          {/* Users */}
           {activeTab === "users" && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -226,6 +503,7 @@ const AdminPage = () => {
               </div>
             </div>
           )}
+
         </main>
       </div>
     </div>
