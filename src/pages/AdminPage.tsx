@@ -103,6 +103,40 @@ interface ProductForm {
 
 const emptyForm: ProductForm = { name: "", description: "", price: "", stock: "", categoryId: "1", imageUrl: "" };
 
+// ── Outside component — avoids re-render focus loss ──
+const Modal = ({ title, onClose, onSubmit, submitLabel, submitColor = "bg-primary", submitting, children }: any) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="flex items-center justify-between p-6 border-b border-border">
+        <h2 className="font-bold text-lg text-foreground">{title}</h2>
+        <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors"><FiX className="w-5 h-5" /></button>
+      </div>
+      <div className="p-6 space-y-4">{children}</div>
+      <div className="flex gap-3 p-6 border-t border-border">
+        <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground hover:bg-muted transition-colors">Cancel</button>
+        <button onClick={onSubmit} disabled={submitting} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 ${submitColor}`}>
+          {submitting ? "Please wait..." : submitLabel}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const FormField = ({ label, type = "text", value, onChange, placeholder, as: As = "input", children }: any) => (
+  <div>
+    <label className="text-sm font-medium text-foreground mb-1.5 block">{label}</label>
+    {As === "select" ? (
+      <select value={value} onChange={onChange} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
+        {children}
+      </select>
+    ) : As === "textarea" ? (
+      <textarea value={value} onChange={onChange} placeholder={placeholder} rows={3} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary resize-none" />
+    ) : (
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary" />
+    )}
+  </div>
+);
+
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -226,45 +260,12 @@ const AdminPage = () => {
     setShowDeleteModal(true);
   };
 
-  const Modal = ({ title, onClose, onSubmit, submitLabel, submitColor = "bg-primary", children }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="font-bold text-lg text-foreground">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors"><FiX className="w-5 h-5" /></button>
-        </div>
-        <div className="p-6 space-y-4">{children}</div>
-        <div className="flex gap-3 p-6 border-t border-border">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground hover:bg-muted transition-colors">Cancel</button>
-          <button onClick={onSubmit} disabled={submitting} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 ${submitColor}`}>
-            {submitting ? "Please wait..." : submitLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const FormField = ({ label, type = "text", value, onChange, placeholder, as: As = "input", children }: any) => (
-    <div>
-      <label className="text-sm font-medium text-foreground mb-1.5 block">{label}</label>
-      {As === "select" ? (
-        <select value={value} onChange={onChange} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
-          {children}
-        </select>
-      ) : As === "textarea" ? (
-        <textarea value={value} onChange={onChange} placeholder={placeholder} rows={3} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary resize-none" />
-      ) : (
-        <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary" />
-      )}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-background flex">
 
       {/* Add Modal */}
       {showAddModal && (
-        <Modal title="Add New Product" onClose={() => { setShowAddModal(false); setForm(emptyForm); }} onSubmit={handleAdd} submitLabel="Add Product">
+        <Modal title="Add New Product" onClose={() => { setShowAddModal(false); setForm(emptyForm); }} onSubmit={handleAdd} submitLabel="Add Product" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
           <FormField label="Description" as="textarea" value={form.description} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Enter description" />
           <div className="grid grid-cols-2 gap-4">
@@ -281,7 +282,7 @@ const AdminPage = () => {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <Modal title="Edit Product" onClose={() => { setShowEditModal(false); setForm(emptyForm); }} onSubmit={handleEdit} submitLabel="Save Changes">
+        <Modal title="Edit Product" onClose={() => { setShowEditModal(false); setForm(emptyForm); }} onSubmit={handleEdit} submitLabel="Save Changes" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
           <FormField label="Description" as="textarea" value={form.description} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Enter description" />
           <div className="grid grid-cols-2 gap-4">
@@ -295,7 +296,7 @@ const AdminPage = () => {
 
       {/* Delete Modal */}
       {showDeleteModal && (
-        <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive">
+        <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
               <FiAlertTriangle className="w-7 h-7 text-destructive" />
