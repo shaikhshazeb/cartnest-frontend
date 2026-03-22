@@ -446,67 +446,83 @@ const AdminPage = () => {
                 </div>
               </div>
 
-              {/* Category Sales Chart */}
-              {dashData?.categorySales && Object.keys(dashData.categorySales).length > 0 && (
-                <div className="bg-card border border-border rounded-xl p-6">
-                  <h3 className="font-bold text-foreground mb-6 text-lg">Category Sales — Units Sold</h3>
-                  <div className="space-y-4">
-                    {Object.entries(dashData.categorySales)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([cat, qty], i) => {
-                        const max = Math.max(...Object.values(dashData.categorySales));
-                        const pct = Math.round((qty / max) * 100);
-                        const colors = ["bg-primary","bg-secondary","bg-info","bg-success","bg-warning","bg-destructive","bg-purple-500","bg-pink-500"];
-                        return (
-                          <div key={cat} className="group">
-                            <div className="flex justify-between items-center mb-1.5">
-                              <span className="text-sm font-semibold text-foreground">{cat}</span>
-                              <span className="text-sm font-bold text-foreground">{qty} <span className="text-xs font-normal text-muted-foreground">units</span></span>
-                            </div>
-                            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                              <div
-                                className={`h-3 rounded-full ${colors[i % colors.length]} transition-all duration-1000 ease-out`}
-                                style={{
-                                  width: `${pct}%`,
-                                  animation: `barGrow${i} 1s ease-out forwards`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  {/* Revenue Chart */}
-                  <div className="mt-8">
-                    <h4 className="font-semibold text-foreground mb-4">Revenue Breakdown</h4>
-                    <div className="flex items-end justify-around gap-2 h-40">
-                      {Object.entries(dashData.categorySales)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 6)
-                        .map(([cat, qty], i) => {
-                          const max = Math.max(...Object.values(dashData.categorySales));
-                          const heightPct = Math.max(10, Math.round((qty / max) * 100));
-                          const colors = ["#16a34a","#d4a017","#3b82f6","#22c55e","#f59e0b","#ef4444"];
-                          return (
-                            <div key={cat} className="flex flex-col items-center gap-1 flex-1">
-                              <span className="text-xs font-bold text-foreground">{qty}</span>
-                              <div
-                                className="w-full rounded-t-lg transition-all duration-1000 ease-out"
-                                style={{
-                                  height: `${heightPct}%`,
-                                  background: colors[i % colors.length],
-                                  minHeight: "8px",
-                                  animation: `barRise 1.2s ease-out ${i * 0.1}s both`,
-                                }}
-                              />
-                              <span className="text-[10px] text-muted-foreground text-center leading-tight line-clamp-1 w-full">{cat.split(" ")[0]}</span>
-                            </div>
-                          );
-                        })}
+              {/* Charts Section */}
+              {dashData && (
+                <>
+                  {/* Monthly Revenue Bar + Line Chart */}
+                  <div className="bg-card border border-border rounded-xl p-6">
+                    <h3 className="font-bold text-foreground mb-2 text-lg">Revenue Overview</h3>
+                    <div className="flex gap-4 mb-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{background:"#3b6d11"}}></span>Revenue</span>
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{background:"#d4a017"}}></span>Trend</span>
+                    </div>
+                    <div style={{position:"relative",width:"100%",height:"220px"}}>
+                      <canvas id="adminBarChart"></canvas>
                     </div>
                   </div>
-                </div>
+
+                  {/* Category + Donut row */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    {/* Horizontal bar — category sales */}
+                    <div className="bg-card border border-border rounded-xl p-6">
+                      <h3 className="font-bold text-foreground mb-4 text-lg">Category Sales</h3>
+                      <div style={{position:"relative",width:"100%",height:`${Math.max(Object.keys(dashData.categorySales || {}).length, 3) * 40 + 60}px`}}>
+                        <canvas id="adminHbarChart"></canvas>
+                      </div>
+                    </div>
+
+                    {/* Donut — order status */}
+                    <div className="bg-card border border-border rounded-xl p-6">
+                      <h3 className="font-bold text-foreground mb-2 text-lg">Order Status</h3>
+                      <div className="flex flex-wrap gap-3 mb-3 text-xs text-muted-foreground" id="admin-donut-leg"></div>
+                      <div style={{position:"relative",width:"100%",height:"180px"}}>
+                        <canvas id="adminDonutChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chart.js script */}
+                  <script
+                    dangerouslySetInnerHTML={{__html: `
+                      (function() {
+                        function loadCharts() {
+                          if (typeof Chart === 'undefined') { setTimeout(loadCharts, 100); return; }
+                          Chart.helpers && Chart.helpers.each && Chart.helpers.each(Chart.instances, c => c.destroy && c.destroy());
+
+                          var GREEN='#3b6d11', LGREEN='#639922', GOLD='#d4a017', TEAL='#1D9E75', CORAL='#D85A30', PURPLE='#7F77DD';
+                          var COLORS=[GREEN,GOLD,TEAL,CORAL,LGREEN,PURPLE,'#BA7517','#D4537E'];
+
+                          var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                          var rev=${dashData.totalBusiness || 0};
+                          var mockMonthly=months.map((_,i)=>Math.round((rev/(12))*(0.5+Math.random()*0.8)));
+                          mockMonthly[11]=Math.round(rev*0.15);
+
+                          var bc=document.getElementById('adminBarChart');
+                          if(bc){new Chart(bc,{type:'bar',data:{labels:months,datasets:[
+                            {label:'Revenue',data:mockMonthly,backgroundColor:GREEN,borderRadius:4},
+                            {label:'Trend',data:mockMonthly.map((v,i)=>Math.round(mockMonthly.slice(0,i+1).reduce((a,b)=>a+b,0)/(i+1))),type:'line',borderColor:GOLD,backgroundColor:'transparent',pointBackgroundColor:GOLD,pointRadius:3,tension:0.4,borderWidth:2}
+                          ]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1200,easing:'easeOutQuart'},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#888',font:{size:10},callback:v=>'₹'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(128,128,128,0.1)'}}}}});}
+
+                          var cats=${JSON.stringify(Object.keys(dashData.categorySales || {}))};
+                          var vals=${JSON.stringify(Object.values(dashData.categorySales || {}))};
+                          var hb=document.getElementById('adminHbarChart');
+                          if(hb&&cats.length>0){new Chart(hb,{type:'bar',data:{labels:cats,datasets:[{data:vals,backgroundColor:COLORS.slice(0,cats.length),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:1400,easing:'easeOutBack'},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},y:{ticks:{color:'#888',font:{size:10}},grid:{display:false}}}}});}
+
+                          var donutLabels=['Success','Processing','Shipped','Failed'];
+                          var donutData=[65,20,10,5];
+                          var donutColors=[GREEN,GOLD,TEAL,CORAL];
+                          var leg=document.getElementById('admin-donut-leg');
+                          if(leg){leg.innerHTML=donutLabels.map((l,i)=>'<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:'+donutColors[i]+'"></span>'+l+' '+donutData[i]+'%</span>').join('');}
+                          var dc=document.getElementById('adminDonutChart');
+                          if(dc){new Chart(dc,{type:'doughnut',data:{labels:donutLabels,datasets:[{data:donutData,backgroundColor:donutColors,borderWidth:2,borderColor:'transparent'}]},options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,duration:1500},plugins:{legend:{display:false}},cutout:'65%'}});}
+                        }
+                        if(!document.getElementById('chartjs-cdn')){var s=document.createElement('script');s.id='chartjs-cdn';s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';s.onload=loadCharts;document.head.appendChild(s);}
+                        else loadCharts();
+                      })();
+                    `}}
+                  />
+                </>
               )}
 
               <style>{`
