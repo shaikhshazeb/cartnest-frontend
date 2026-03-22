@@ -123,6 +123,8 @@ const AdminPage = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [selectedUserToDelete, setSelectedUserToDelete] = useState<any>(null);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [catLoading, setCatLoading] = useState(false);
   const [showAddCatModal, setShowAddCatModal] = useState(false);
@@ -329,22 +331,28 @@ const AdminPage = () => {
     } catch { toast.error("Something went wrong"); }
   };
 
-  const handleDeleteUser = async (username: string) => {
+  const handleDeleteUser = async () => {
+    if (!selectedUserToDelete) return;
+    setSubmitting(true);
     try {
       const res = await fetch(`${BASE_URL}/admin/users/delete`, {
-  method: "POST",  // DELETE ki jagah POST
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ username }),
-    });
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: selectedUserToDelete.username }),
+      });
       const text = await res.text();
       if (res.ok) {
         toast.success("User deleted successfully");
-        setAllUsers(prev => prev.filter(u => u.username !== username));
+        setAllUsers(prev => prev.filter(u => u.username !== selectedUserToDelete.username));
+        setShowDeleteUserModal(false);
+        setSelectedUserToDelete(null);
       } else {
-        toast.error("Failed to delete: " + text);
+        toast.error("Failed: " + text);
       }
     } catch (e: any) {
       toast.error("Error: " + e.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -427,7 +435,18 @@ const AdminPage = () => {
         </Modal>
       )}
 
-      {/* Add Category Modal */}
+      {/* Delete User Modal */}
+      {showDeleteUserModal && (
+        <Modal title="Delete User" onClose={() => { setShowDeleteUserModal(false); setSelectedUserToDelete(null); }} onSubmit={handleDeleteUser} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center"><FiAlertTriangle className="w-7 h-7 text-destructive" /></div>
+            <div>
+              <p className="font-semibold text-foreground mb-1">Are you sure?</p>
+              <p className="text-sm text-muted-foreground">This will permanently delete user <span className="font-semibold text-foreground">"{selectedUserToDelete?.username}"</span> and all their cart data. This cannot be undone.</p>
+            </div>
+          </div>
+        </Modal>
+      )}
       {showAddCatModal && (
         <Modal title="Add Category" onClose={() => { setShowAddCatModal(false); setCatName(""); }} onSubmit={handleAddCategory} submitLabel="Add Category" submitting={submitting}>
           <FormField label="Category Name *" value={catName} onChange={(e: any) => setCatName(e.target.value)} placeholder="e.g. Electronics" />
@@ -786,7 +805,7 @@ const AdminPage = () => {
                                     {u.isBlocked ? 'Unblock' : 'Block'}
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteUser(u.username)}
+                                    onClick={() => { setSelectedUserToDelete(u); setShowDeleteUserModal(true); }}
                                     className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                                   >
                                     Delete
