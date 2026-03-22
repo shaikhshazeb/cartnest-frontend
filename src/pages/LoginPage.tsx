@@ -1,22 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiShield } from "react-icons/fi";
+import { FiMail, FiLock, FiUser, FiEye, FiEyeOff } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-
-// Role options that exactly match what the backend enum accepts
-const ROLE_OPTIONS: { value: "CUSTOMER" | "ADMIN"; label: string; description: string }[] = [
-  {
-    value: "CUSTOMER",
-    label: "Customer",
-    description: "Shop and manage your orders",
-  },
-  {
-    value: "ADMIN",
-    label: "Admin",
-    description: "Manage products, orders & users",
-  },
-];
 
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -26,13 +12,12 @@ const LoginPage = () => {
     name: "",
     email: "",
     password: "",
-    role: "CUSTOMER" as "CUSTOMER" | "ADMIN",
+    role: "CUSTOMER" as "CUSTOMER",
   });
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  // Reset form whenever switching between login / register tabs
   const handleToggleMode = () => {
     setIsLogin((prev) => !prev);
     setForm({ name: "", email: "", password: "", role: "CUSTOMER" });
@@ -57,8 +42,8 @@ const LoginPage = () => {
         await login(form.email, form.password);
         toast.success("Welcome back!");
       } else {
-        // role comes directly from form state — whatever the user selected
-        await register(form.name.trim(), form.email, form.password, form.role);
+        // Always CUSTOMER — Admin role cannot be selected from UI
+        await register(form.name.trim(), form.email, form.password, "CUSTOMER");
         toast.success("Account created! Welcome to CartNest 🎉");
       }
       navigate("/");
@@ -72,7 +57,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* ── Left branding panel ─────────────────────────────────────────── */}
+      {/* Left branding panel */}
       <div className="hidden lg:flex flex-1 green-gradient relative overflow-hidden items-center justify-center">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 right-20 w-72 h-72 rounded-full bg-secondary blur-3xl" />
@@ -89,7 +74,7 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* ── Right form panel ─────────────────────────────────────────────── */}
+      {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
@@ -108,69 +93,26 @@ const LoginPage = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
 
-              {/* ── Registration-only fields ─────────────────────────── */}
+              {/* Registration-only fields */}
               {!isLogin && (
-                <>
-                  {/* Full Name */}
-                  <div>
-                    <label className="text-sm font-semibold text-foreground mb-1.5 block">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <FiUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <input
-                        type="text"
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        placeholder="John Doe"
-                        className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                      />
-                    </div>
+                <div>
+                  <label className="text-sm font-semibold text-foreground mb-1.5 block">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <FiUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="John Doe"
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
                   </div>
-
-                  {/* Role selector */}
-                  <div>
-                    <label className="text-sm font-semibold text-foreground mb-1.5 block">
-                      Account Role
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {ROLE_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setForm({ ...form, role: option.value })}
-                          className={`
-                            relative flex flex-col items-start gap-1 px-4 py-3 rounded-xl border-2 text-left
-                            transition-all duration-150 cursor-pointer
-                            ${
-                              form.role === option.value
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border bg-background text-foreground hover:border-primary/40"
-                            }
-                          `}
-                        >
-                          {/* Selected indicator dot */}
-                          <span
-                            className={`
-                              absolute top-2.5 right-2.5 w-2 h-2 rounded-full transition-all
-                              ${form.role === option.value ? "bg-primary scale-100" : "bg-border scale-75"}
-                            `}
-                          />
-                          <span className="flex items-center gap-1.5 font-semibold text-sm">
-                            <FiShield className="w-3.5 h-3.5" />
-                            {option.label}
-                          </span>
-                          <span className="text-xs text-muted-foreground leading-snug">
-                            {option.description}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
 
-              {/* ── Email (both modes) ──────────────────────────────── */}
+              {/* Email */}
               <div>
                 <label className="text-sm font-semibold text-foreground mb-1.5 block">
                   Email
@@ -187,7 +129,7 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              {/* ── Password (both modes) ───────────────────────────── */}
+              {/* Password */}
               <div>
                 <label className="text-sm font-semibold text-foreground mb-1.5 block">
                   Password
@@ -211,7 +153,7 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              {/* Forgot password – login only */}
+              {/* Forgot password */}
               {isLogin && (
                 <div className="text-right">
                   <a href="#" className="text-xs text-primary font-semibold hover:underline">
@@ -220,28 +162,21 @@ const LoginPage = () => {
                 </div>
               )}
 
-              {/* ── Submit button ───────────────────────────────────── */}
+              {/* Submit button */}
               <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
               >
                 {isLoading
-                  ? isLogin
-                    ? "Signing in…"
-                    : "Creating account…"
-                  : isLogin
-                  ? "Sign In"
-                  : `Create ${form.role === "ADMIN" ? "Admin" : "Customer"} Account`}
+                  ? isLogin ? "Signing in…" : "Creating account…"
+                  : isLogin ? "Sign In" : "Create Account"}
               </button>
             </form>
 
             <p className="text-sm text-muted-foreground text-center mt-7">
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button
-                onClick={handleToggleMode}
-                className="text-primary font-bold hover:underline"
-              >
+              <button onClick={handleToggleMode} className="text-primary font-bold hover:underline">
                 {isLogin ? "Sign Up" : "Sign In"}
               </button>
             </p>
