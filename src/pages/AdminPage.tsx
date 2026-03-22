@@ -119,6 +119,8 @@ const AdminPage = () => {
   const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; categorySales: Record<string, number> } | null>(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -175,6 +177,16 @@ const AdminPage = () => {
 
   useEffect(() => { loadProducts(); }, []);
   useEffect(() => { if (activeTab === "dashboard") fetchDashboard(); }, [activeTab]);
+  useEffect(() => {
+    if (activeTab === "orders") {
+      setOrdersLoading(true);
+      fetch(`${BASE_URL}/admin/business/all-orders`)
+        .then(res => res.json())
+        .then(data => setAllOrders(Array.isArray(data) ? data : []))
+        .catch(() => setAllOrders([]))
+        .finally(() => setOrdersLoading(false));
+    }
+  }, [activeTab]);
 
   // Init charts when dashData changes
   useEffect(() => {
@@ -546,25 +558,42 @@ const AdminPage = () => {
           {/* Orders */}
           {activeTab === "orders" && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                    <th className="p-4 font-semibold">Order</th><th className="p-4 font-semibold">Customer</th><th className="p-4 font-semibold">Date</th><th className="p-4 font-semibold">Total</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold">Payment</th>
-                  </tr></thead>
-                  <tbody>
-                    {mockOrders.map((o) => (
-                      <tr key={o.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="p-4 font-semibold text-foreground">{o.id}</td>
-                        <td className="p-4 text-muted-foreground">{o.customer}</td>
-                        <td className="p-4 text-muted-foreground">{o.date}</td>
-                        <td className="p-4 font-semibold text-foreground">₹{o.total}</td>
-                        <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status]}`}>{o.status}</span></td>
-                        <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.payment]}`}>{o.payment}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {ordersLoading ? (
+                <div className="p-8 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                      <th className="p-4 font-semibold">Order ID</th>
+                      <th className="p-4 font-semibold">Customer</th>
+                      <th className="p-4 font-semibold">Date</th>
+                      <th className="p-4 font-semibold">Total</th>
+                      <th className="p-4 font-semibold">Status</th>
+                    </tr></thead>
+                    <tbody>
+                      {allOrders.length === 0 ? (
+                        <tr><td colSpan={5} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
+                      ) : (
+                        allOrders.map((o) => (
+                          <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                            <td className="p-4 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
+                            <td className="p-4 text-muted-foreground">{o.username}</td>
+                            <td className="p-4 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '-'}</td>
+                            <td className="p-4 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
+                            <td className="p-4">
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+                                o.status === 'SUCCESS' ? 'bg-success/10 text-success' :
+                                o.status === 'PENDING' ? 'bg-warning/10 text-warning' :
+                                'bg-destructive/10 text-destructive'
+                              }`}>{o.status}</span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
