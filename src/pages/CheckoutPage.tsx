@@ -202,7 +202,7 @@ const CheckoutPage = () => {
                   <img src={item.image} alt={item.title} className="w-12 h-12 object-cover rounded" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-foreground line-clamp-1">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">Qty: {item.quantity} × ${item.price}</p>
+                    <p className="text-xs text-muted-foreground">Qty: {item.quantity} × ₹{item.price}</p>
                   </div>
                   <span className="text-sm font-medium text-foreground">₹{(item.price * item.quantity).toFixed(2)}</span>
                 </div>

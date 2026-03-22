@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiTrendingUp, FiDollarSign, FiSave, FiAlertTriangle } from "react-icons/fi";
+import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiDollarSign, FiAlertTriangle } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
 import { fetchProductsFromAPI, Product } from "@/data/products";
 import { toast } from "sonner";
@@ -14,49 +14,6 @@ const tabs = [
   { id: "orders", label: "Orders", icon: FiShoppingBag },
   { id: "users", label: "Users", icon: FiUsers },
 ];
-
-const stats = [
-  { label: "Total Revenue", value: 48520, prefix: "₹", icon: FiDollarSign, change: "+12.5%", color: "bg-primary/10 text-primary" },
-  { label: "Total Orders", value: 1284, prefix: "", icon: FiShoppingBag, change: "+8.2%", color: "bg-secondary/20 text-secondary-foreground" },
-  { label: "Total Products", value: 156, prefix: "", icon: FiPackage, change: "+3", color: "bg-accent text-accent-foreground" },
-  { label: "Total Users", value: 3842, prefix: "", icon: FiUsers, change: "+15.3%", color: "bg-info/10 text-info" },
-];
-
-const AnimatedCounter = ({ target, prefix = "" }: { target: number; prefix?: string }) => {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const started = useRef(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true;
-        const duration = 1800;
-        const steps = 60;
-        const increment = target / steps;
-        let current = 0;
-        const timer = setInterval(() => {
-          current += increment;
-          if (current >= target) {
-            setCount(target);
-            clearInterval(timer);
-          } else {
-            setCount(Math.floor(current));
-          }
-        }, duration / steps);
-      }
-    }, { threshold: 0.3 });
-
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target]);
-
-  return (
-    <span ref={ref}>
-      {prefix}{count.toLocaleString("en-IN")}
-    </span>
-  );
-};
 
 const mockOrders = [
   { id: "ORD-001", customer: "John Doe", total: 129.99, status: "Delivered", payment: "Paid", date: "Mar 8" },
@@ -82,28 +39,40 @@ const statusColors: Record<string, string> = {
 };
 
 const categories = [
-  { id: 1, name: "Electronics" },
-  { id: 2, name: "Fashion" },
-  { id: 3, name: "Clothing" },
-  { id: 4, name: "Home & Kitchen" },
-  { id: 5, name: "Books" },
-  { id: 6, name: "Sports" },
-  { id: 7, name: "Beauty" },
-  { id: 8, name: "Toys" },
+  { id: 1, name: "Electronics" }, { id: 2, name: "Fashion" }, { id: 3, name: "Clothing" },
+  { id: 4, name: "Home & Kitchen" }, { id: 5, name: "Books" }, { id: 6, name: "Sports" },
+  { id: 7, name: "Beauty" }, { id: 8, name: "Toys" },
 ];
 
 interface ProductForm {
-  name: string;
-  description: string;
-  price: string;
-  stock: string;
-  categoryId: string;
-  imageUrl: string;
+  name: string; description: string; price: string; stock: string; categoryId: string; imageUrl: string;
 }
-
 const emptyForm: ProductForm = { name: "", description: "", price: "", stock: "", categoryId: "1", imageUrl: "" };
 
-// ── Outside component — avoids re-render focus loss ──
+const AnimatedCounter = ({ target, prefix = "" }: { target: number; prefix?: string }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started.current) {
+        started.current = true;
+        const steps = 60;
+        const increment = target / steps;
+        let current = 0;
+        const timer = setInterval(() => {
+          current += increment;
+          if (current >= target) { setCount(target); clearInterval(timer); }
+          else setCount(Math.floor(current));
+        }, 1800 / steps);
+      }
+    }, { threshold: 0.3 });
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target]);
+  return <span ref={ref}>{prefix}{count.toLocaleString("en-IN")}</span>;
+};
+
 const Modal = ({ title, onClose, onSubmit, submitLabel, submitColor = "bg-primary", submitting, children }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
     <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
@@ -126,9 +95,7 @@ const FormField = ({ label, type = "text", value, onChange, placeholder, as: As 
   <div>
     <label className="text-sm font-medium text-foreground mb-1.5 block">{label}</label>
     {As === "select" ? (
-      <select value={value} onChange={onChange} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
-        {children}
-      </select>
+      <select value={value} onChange={onChange} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">{children}</select>
     ) : As === "textarea" ? (
       <textarea value={value} onChange={onChange} placeholder={placeholder} rows={3} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary resize-none" />
     ) : (
@@ -160,11 +127,24 @@ const AdminPage = () => {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
+  // Chart refs
+  const barChartRef = useRef<any>(null);
+  const hbarChartRef = useRef<any>(null);
+  const donutChartRef = useRef<any>(null);
+  const chartInstances = useRef<any[]>([]);
+
+  const destroyCharts = () => {
+    chartInstances.current.forEach(c => { try { c.destroy(); } catch {} });
+    chartInstances.current = [];
+  };
+
+  // Load products
   const loadProducts = () => {
     setLoading(true);
     fetchProductsFromAPI().then(setProducts).catch(() => setProducts([])).finally(() => setLoading(false));
   };
 
+  // Fetch dashboard data
   const fetchDashboard = async () => {
     setDashLoading(true);
     try {
@@ -173,7 +153,6 @@ const AdminPage = () => {
       else if (dashFilter === "monthly") url = `${BASE_URL}/admin/business/monthly?month=${dashMonth}&year=${dashYear}`;
       else if (dashFilter === "yearly") url = `${BASE_URL}/admin/business/yearly?year=${dashYear}`;
       else if (dashFilter === "daily") url = `${BASE_URL}/admin/business/daily?date=${dashDate}`;
-
       const res = await fetch(url);
       const data = await res.json();
       setDashData(data);
@@ -187,111 +166,112 @@ const AdminPage = () => {
   useEffect(() => { loadProducts(); }, []);
   useEffect(() => { if (activeTab === "dashboard") fetchDashboard(); }, [activeTab]);
 
-  const handleAdd = async () => {
-    if (!form.name || !form.price || !form.stock || !form.imageUrl) {
-      toast.error("Please fill all required fields");
-      return;
+  // Init charts when dashData changes
+  useEffect(() => {
+    if (!dashData) return;
+
+    const GREEN = '#3b6d11', LGREEN = '#639922', GOLD = '#d4a017', TEAL = '#1D9E75', CORAL = '#D85A30', PURPLE = '#7F77DD';
+    const COLORS = [GREEN, GOLD, TEAL, CORAL, LGREEN, PURPLE, '#BA7517', '#D4537E'];
+
+    const initCharts = (ChartJS: any) => {
+      destroyCharts();
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const rev = dashData.totalBusiness || 0;
+      const mockMonthly = months.map(() => Math.round((rev / 12) * (0.5 + Math.random() * 0.8)));
+      mockMonthly[11] = Math.round(rev * 0.15);
+
+      const bc = barChartRef.current;
+      if (bc) {
+        chartInstances.current.push(new ChartJS(bc, {
+          type: 'bar',
+          data: {
+            labels: months,
+            datasets: [
+              { label: 'Revenue', data: mockMonthly, backgroundColor: GREEN, borderRadius: 4 },
+              { label: 'Trend', data: mockMonthly.map((_: number, i: number) => Math.round(mockMonthly.slice(0, i + 1).reduce((a: number, b: number) => a + b, 0) / (i + 1))), type: 'line', borderColor: GOLD, backgroundColor: 'transparent', pointBackgroundColor: GOLD, pointRadius: 3, tension: 0.4, borderWidth: 2 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1200, easing: 'easeOutQuart' }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#888', font: { size: 10 }, callback: (v: number) => '₹' + (v / 1000).toFixed(0) + 'k' }, grid: { color: 'rgba(128,128,128,0.1)' } } } }
+        }));
+      }
+
+      const cats = Object.keys(dashData.categorySales || {});
+      const vals = Object.values(dashData.categorySales || {});
+      const hb = hbarChartRef.current;
+      if (hb && cats.length > 0) {
+        chartInstances.current.push(new ChartJS(hb, {
+          type: 'bar',
+          data: { labels: cats, datasets: [{ data: vals, backgroundColor: COLORS.slice(0, cats.length), borderRadius: 4 }] },
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 1400, easing: 'easeOutBack' }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: 'rgba(128,128,128,0.1)' } }, y: { ticks: { color: '#888', font: { size: 10 } }, grid: { display: false } } } }
+        }));
+      }
+
+      const dc = donutChartRef.current;
+      if (dc) {
+        chartInstances.current.push(new ChartJS(dc, {
+          type: 'doughnut',
+          data: { labels: ['Success','Processing','Shipped','Failed'], datasets: [{ data: [65, 20, 10, 5], backgroundColor: [GREEN, GOLD, TEAL, CORAL], borderWidth: 2, borderColor: 'transparent' }] },
+          options: { responsive: true, maintainAspectRatio: false, animation: { animateRotate: true, duration: 1500 }, plugins: { legend: { display: false } }, cutout: '65%' }
+        }));
+      }
+    };
+
+    if ((window as any).Chart) {
+      initCharts((window as any).Chart);
+    } else {
+      const existing = document.getElementById('chartjs-cdn');
+      if (!existing) {
+        const s = document.createElement('script');
+        s.id = 'chartjs-cdn';
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+        s.onload = () => initCharts((window as any).Chart);
+        document.head.appendChild(s);
+      } else {
+        const wait = setInterval(() => {
+          if ((window as any).Chart) { clearInterval(wait); initCharts((window as any).Chart); }
+        }, 100);
+      }
     }
+
+    return () => destroyCharts();
+  }, [dashData]);
+
+  // Product handlers
+  const handleAdd = async () => {
+    if (!form.name || !form.price || !form.stock || !form.imageUrl) { toast.error("Please fill all required fields"); return; }
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/products/add`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-          price: parseFloat(form.price),
-          stock: parseInt(form.stock),
-          categoryId: parseInt(form.categoryId),
-          imageUrl: form.imageUrl,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Product added successfully!");
-        setShowAddModal(false);
-        setForm(emptyForm);
-        loadProducts();
-      } else {
-        toast.error("Failed to add product");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
+      const res = await fetch(`${BASE_URL}/admin/products/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.name, description: form.description, price: parseFloat(form.price), stock: parseInt(form.stock), categoryId: parseInt(form.categoryId), imageUrl: form.imageUrl }) });
+      if (res.ok) { toast.success("Product added!"); setShowAddModal(false); setForm(emptyForm); loadProducts(); }
+      else toast.error("Failed to add product");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
   const handleEdit = async () => {
-    if (!form.name || !form.price || !form.stock) {
-      toast.error("Please fill all required fields");
-      return;
-    }
+    if (!form.name || !form.price || !form.stock) { toast.error("Please fill all required fields"); return; }
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/products/edit`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: selectedProduct?.id,
-          name: form.name,
-          description: form.description,
-          price: parseFloat(form.price),
-          stock: parseInt(form.stock),
-          imageUrl: form.imageUrl,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Product updated successfully!");
-        setShowEditModal(false);
-        setForm(emptyForm);
-        loadProducts();
-      } else {
-        toast.error("Failed to update product");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
+      const res = await fetch(`${BASE_URL}/admin/products/edit`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: selectedProduct?.id, name: form.name, description: form.description, price: parseFloat(form.price), stock: parseInt(form.stock), imageUrl: form.imageUrl }) });
+      if (res.ok) { toast.success("Product updated!"); setShowEditModal(false); setForm(emptyForm); loadProducts(); }
+      else toast.error("Failed to update product");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
   const handleDelete = async () => {
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/products/delete`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: selectedProduct?.id }),
-      });
-      if (res.ok) {
-        toast.success("Product deleted successfully!");
-        setShowDeleteModal(false);
-        loadProducts();
-      } else {
-        toast.error("Failed to delete product");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
+      const res = await fetch(`${BASE_URL}/admin/products/delete`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: selectedProduct?.id }) });
+      if (res.ok) { toast.success("Product deleted!"); setShowDeleteModal(false); loadProducts(); }
+      else toast.error("Failed to delete product");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
-  const openEdit = (p: Product) => {
-    setSelectedProduct(p);
-    setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image });
-    setShowEditModal(true);
-  };
-
-  const openDelete = (p: Product) => {
-    setSelectedProduct(p);
-    setShowDeleteModal(true);
-  };
+  const openEdit = (p: Product) => { setSelectedProduct(p); setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image }); setShowEditModal(true); };
+  const openDelete = (p: Product) => { setSelectedProduct(p); setShowDeleteModal(true); };
 
   return (
     <div className="min-h-screen bg-background flex">
 
-      {/* Add Modal */}
       {showAddModal && (
         <Modal title="Add New Product" onClose={() => { setShowAddModal(false); setForm(emptyForm); }} onSubmit={handleAdd} submitLabel="Add Product" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
@@ -308,7 +288,6 @@ const AdminPage = () => {
         </Modal>
       )}
 
-      {/* Edit Modal */}
       {showEditModal && (
         <Modal title="Edit Product" onClose={() => { setShowEditModal(false); setForm(emptyForm); }} onSubmit={handleEdit} submitLabel="Save Changes" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
@@ -322,16 +301,13 @@ const AdminPage = () => {
         </Modal>
       )}
 
-      {/* Delete Modal */}
       {showDeleteModal && (
         <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
           <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
-              <FiAlertTriangle className="w-7 h-7 text-destructive" />
-            </div>
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center"><FiAlertTriangle className="w-7 h-7 text-destructive" /></div>
             <div>
               <p className="font-semibold text-foreground mb-1">Are you sure?</p>
-              <p className="text-sm text-muted-foreground">This will permanently delete <span className="font-semibold text-foreground">"{selectedProduct?.title}"</span>. This action cannot be undone.</p>
+              <p className="text-sm text-muted-foreground">This will permanently delete <span className="font-semibold text-foreground">"{selectedProduct?.title}"</span>.</p>
             </div>
           </div>
         </Modal>
@@ -375,17 +351,13 @@ const AdminPage = () => {
           {/* Dashboard */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-
               {/* Filter Bar */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">Filter:</span>
                 {["overall", "monthly", "yearly", "daily"].map(f => (
-                  <button key={f} onClick={() => setDashFilter(f)}
-                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-colors ${dashFilter === f ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>
-                    {f}
-                  </button>
+                  <button key={f} onClick={() => setDashFilter(f)} className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-colors ${dashFilter === f ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{f}</button>
                 ))}
-                {(dashFilter === "monthly") && (
+                {dashFilter === "monthly" && (
                   <>
                     <select value={dashMonth} onChange={e => setDashMonth(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none">
                       {["1","2","3","4","5","6","7","8","9","10","11","12"].map(m => (
@@ -395,61 +367,41 @@ const AdminPage = () => {
                     <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
                   </>
                 )}
-                {dashFilter === "yearly" && (
-                  <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
-                )}
-                {dashFilter === "daily" && (
-                  <input type="date" value={dashDate} onChange={e => setDashDate(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
-                )}
-                <button onClick={fetchDashboard} disabled={dashLoading}
-                  className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60">
+                {dashFilter === "yearly" && <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />}
+                {dashFilter === "daily" && <input type="date" value={dashDate} onChange={e => setDashDate(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />}
+                <button onClick={fetchDashboard} disabled={dashLoading} className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60">
                   {dashLoading ? "Loading..." : "Apply"}
                 </button>
               </div>
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                <div className="bg-card border border-border rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-muted-foreground font-medium">Total Revenue</span>
                     <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><FiDollarSign className="w-4 h-4" /></div>
                   </div>
-                  {dashLoading ? (
-                    <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-2xl font-black text-foreground">
-                      <AnimatedCounter target={dashData?.totalBusiness || 0} prefix="₹" />
-                    </p>
-                  )}
+                  {dashLoading ? <div className="h-8 w-32 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalBusiness || 0} prefix="₹" /></p>}
                 </div>
-                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                <div className="bg-card border border-border rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-muted-foreground font-medium">Total Orders</span>
                     <div className="w-9 h-9 rounded-lg bg-secondary/20 text-secondary-foreground flex items-center justify-center"><FiShoppingBag className="w-4 h-4" /></div>
                   </div>
-                  {dashLoading ? (
-                    <div className="h-8 w-20 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-2xl font-black text-foreground">
-                      <AnimatedCounter target={dashData?.totalOrders || 0} />
-                    </p>
-                  )}
+                  {dashLoading ? <div className="h-8 w-20 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalOrders || 0} /></p>}
                 </div>
-                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                <div className="bg-card border border-border rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-muted-foreground font-medium">Total Products</span>
                     <div className="w-9 h-9 rounded-lg bg-accent text-accent-foreground flex items-center justify-center"><FiPackage className="w-4 h-4" /></div>
                   </div>
-                  <p className="text-2xl font-black text-foreground">
-                    <AnimatedCounter target={products.length} />
-                  </p>
+                  <p className="text-2xl font-black text-foreground"><AnimatedCounter target={products.length} /></p>
                 </div>
               </div>
 
-              {/* Charts Section */}
+              {/* Charts */}
               {dashData && (
                 <>
-                  {/* Monthly Revenue Bar + Line Chart */}
                   <div className="bg-card border border-border rounded-xl p-6">
                     <h3 className="font-bold text-foreground mb-2 text-lg">Revenue Overview</h3>
                     <div className="flex gap-4 mb-4 text-xs text-muted-foreground">
@@ -457,80 +409,31 @@ const AdminPage = () => {
                       <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{background:"#d4a017"}}></span>Trend</span>
                     </div>
                     <div style={{position:"relative",width:"100%",height:"220px"}}>
-                      <canvas id="adminBarChart"></canvas>
+                      <canvas ref={barChartRef}></canvas>
                     </div>
                   </div>
 
-                  {/* Category + Donut row */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                    {/* Horizontal bar — category sales */}
                     <div className="bg-card border border-border rounded-xl p-6">
                       <h3 className="font-bold text-foreground mb-4 text-lg">Category Sales</h3>
                       <div style={{position:"relative",width:"100%",height:`${Math.max(Object.keys(dashData.categorySales || {}).length, 3) * 40 + 60}px`}}>
-                        <canvas id="adminHbarChart"></canvas>
+                        <canvas ref={hbarChartRef}></canvas>
                       </div>
                     </div>
-
-                    {/* Donut — order status */}
                     <div className="bg-card border border-border rounded-xl p-6">
                       <h3 className="font-bold text-foreground mb-2 text-lg">Order Status</h3>
-                      <div className="flex flex-wrap gap-3 mb-3 text-xs text-muted-foreground" id="admin-donut-leg"></div>
+                      <div className="flex flex-wrap gap-3 mb-3 text-xs text-muted-foreground">
+                        {[['Success','#3b6d11'],['Processing','#d4a017'],['Shipped','#1D9E75'],['Failed','#D85A30']].map(([l,c]) => (
+                          <span key={l} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:c}}></span>{l}</span>
+                        ))}
+                      </div>
                       <div style={{position:"relative",width:"100%",height:"180px"}}>
-                        <canvas id="adminDonutChart"></canvas>
+                        <canvas ref={donutChartRef}></canvas>
                       </div>
                     </div>
                   </div>
-
-                  {/* Chart.js script */}
-                  <script
-                    dangerouslySetInnerHTML={{__html: `
-                      (function() {
-                        function loadCharts() {
-                          if (typeof Chart === 'undefined') { setTimeout(loadCharts, 100); return; }
-                          Chart.helpers && Chart.helpers.each && Chart.helpers.each(Chart.instances, c => c.destroy && c.destroy());
-
-                          var GREEN='#3b6d11', LGREEN='#639922', GOLD='#d4a017', TEAL='#1D9E75', CORAL='#D85A30', PURPLE='#7F77DD';
-                          var COLORS=[GREEN,GOLD,TEAL,CORAL,LGREEN,PURPLE,'#BA7517','#D4537E'];
-
-                          var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                          var rev=${dashData.totalBusiness || 0};
-                          var mockMonthly=months.map((_,i)=>Math.round((rev/(12))*(0.5+Math.random()*0.8)));
-                          mockMonthly[11]=Math.round(rev*0.15);
-
-                          var bc=document.getElementById('adminBarChart');
-                          if(bc){new Chart(bc,{type:'bar',data:{labels:months,datasets:[
-                            {label:'Revenue',data:mockMonthly,backgroundColor:GREEN,borderRadius:4},
-                            {label:'Trend',data:mockMonthly.map((v,i)=>Math.round(mockMonthly.slice(0,i+1).reduce((a,b)=>a+b,0)/(i+1))),type:'line',borderColor:GOLD,backgroundColor:'transparent',pointBackgroundColor:GOLD,pointRadius:3,tension:0.4,borderWidth:2}
-                          ]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1200,easing:'easeOutQuart'},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#888',font:{size:10},callback:v=>'₹'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(128,128,128,0.1)'}}}}});}
-
-                          var cats=${JSON.stringify(Object.keys(dashData.categorySales || {}))};
-                          var vals=${JSON.stringify(Object.values(dashData.categorySales || {}))};
-                          var hb=document.getElementById('adminHbarChart');
-                          if(hb&&cats.length>0){new Chart(hb,{type:'bar',data:{labels:cats,datasets:[{data:vals,backgroundColor:COLORS.slice(0,cats.length),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:1400,easing:'easeOutBack'},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#888',font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},y:{ticks:{color:'#888',font:{size:10}},grid:{display:false}}}}});}
-
-                          var donutLabels=['Success','Processing','Shipped','Failed'];
-                          var donutData=[65,20,10,5];
-                          var donutColors=[GREEN,GOLD,TEAL,CORAL];
-                          var leg=document.getElementById('admin-donut-leg');
-                          if(leg){leg.innerHTML=donutLabels.map((l,i)=>'<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:'+donutColors[i]+'"></span>'+l+' '+donutData[i]+'%</span>').join('');}
-                          var dc=document.getElementById('adminDonutChart');
-                          if(dc){new Chart(dc,{type:'doughnut',data:{labels:donutLabels,datasets:[{data:donutData,backgroundColor:donutColors,borderWidth:2,borderColor:'transparent'}]},options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,duration:1500},plugins:{legend:{display:false}},cutout:'65%'}});}
-                        }
-                        if(!document.getElementById('chartjs-cdn')){var s=document.createElement('script');s.id='chartjs-cdn';s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';s.onload=loadCharts;document.head.appendChild(s);}
-                        else loadCharts();
-                      })();
-                    `}}
-                  />
                 </>
               )}
-
-              <style>{`
-                @keyframes barRise {
-                  from { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
-                  to { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
-                }
-              `}</style>
 
               {/* Recent Orders */}
               <div className="bg-card border border-border rounded-xl p-6">
@@ -573,9 +476,7 @@ const AdminPage = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                        <th className="p-4 font-semibold">Product</th>
-                        <th className="p-4 font-semibold">Price</th>
-                        <th className="p-4 font-semibold">Actions</th>
+                        <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Actions</th>
                       </tr></thead>
                       <tbody>
                         {products.map((p) => (
@@ -592,12 +493,8 @@ const AdminPage = () => {
                             <td className="p-4 font-bold text-foreground">₹{p.price}</td>
                             <td className="p-4">
                               <div className="flex gap-1.5">
-                                <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors">
-                                  <FiEdit className="w-3.5 h-3.5" />Edit
-                                </button>
-                                <button onClick={() => openDelete(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-semibold hover:bg-destructive/20 transition-colors">
-                                  <FiTrash2 className="w-3.5 h-3.5" />Delete
-                                </button>
+                                <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors"><FiEdit className="w-3.5 h-3.5" />Edit</button>
+                                <button onClick={() => openDelete(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-semibold hover:bg-destructive/20 transition-colors"><FiTrash2 className="w-3.5 h-3.5" />Delete</button>
                               </div>
                             </td>
                           </tr>
@@ -613,12 +510,10 @@ const AdminPage = () => {
           {/* Categories */}
           {activeTab === "categories" && (
             <div className="space-y-5">
-              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
-                <FiPlus className="w-4 h-4" />Add Category
-              </button>
+              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform"><FiPlus className="w-4 h-4" />Add Category</button>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {categories.map((cat) => (
-                  <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between hover-lift">
+                  <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between">
                     <span className="font-semibold text-foreground text-sm">{cat.name}</span>
                     <div className="flex gap-1">
                       <button className="p-1.5 hover:bg-accent rounded-lg transition-colors"><FiEdit className="w-3.5 h-3.5 text-info" /></button>
