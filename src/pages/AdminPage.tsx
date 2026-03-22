@@ -118,6 +118,7 @@ const AdminPage = () => {
   const [dashDate, setDashDate] = useState(new Date().toISOString().split("T")[0]);
   const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; categorySales: Record<string, number> } | null>(null);
   const [dashLoading, setDashLoading] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -160,6 +161,15 @@ const AdminPage = () => {
       toast.error("Failed to fetch dashboard data");
     } finally {
       setDashLoading(false);
+    }
+
+    // Fetch recent orders
+    try {
+      const res = await fetch(`${BASE_URL}/admin/business/recent-orders`);
+      const data = await res.json();
+      setRecentOrders(Array.isArray(data) ? data : []);
+    } catch {
+      setRecentOrders([]);
     }
   };
 
@@ -441,18 +451,26 @@ const AdminPage = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="pb-3 font-semibold">Order</th><th className="pb-3 font-semibold">Customer</th><th className="pb-3 font-semibold">Total</th><th className="pb-3 font-semibold">Status</th><th className="pb-3 font-semibold">Payment</th>
+                      <th className="pb-3 font-semibold">Order ID</th>
+                      <th className="pb-3 font-semibold">Customer</th>
+                      <th className="pb-3 font-semibold">Total</th>
+                      <th className="pb-3 font-semibold">Status</th>
+                      <th className="pb-3 font-semibold">Date</th>
                     </tr></thead>
                     <tbody>
-                      {mockOrders.map((o) => (
-                        <tr key={o.id} className="border-b border-border last:border-0">
-                          <td className="py-3.5 font-semibold text-foreground">{o.id}</td>
-                          <td className="py-3.5 text-muted-foreground">{o.customer}</td>
-                          <td className="py-3.5 font-semibold text-foreground">₹{o.total}</td>
-                          <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status]}`}>{o.status}</span></td>
-                          <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.payment]}`}>{o.payment}</span></td>
-                        </tr>
-                      ))}
+                      {recentOrders.length === 0 ? (
+                        <tr><td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">No orders yet</td></tr>
+                      ) : (
+                        recentOrders.map((o) => (
+                          <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                            <td className="py-3.5 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
+                            <td className="py-3.5 text-muted-foreground">{o.username}</td>
+                            <td className="py-3.5 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
+                            <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${o.status === 'SUCCESS' ? 'bg-success/10 text-success' : o.status === 'PENDING' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'}`}>{o.status}</span></td>
+                            <td className="py-3.5 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '-'}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -10,7 +10,7 @@ import { toast } from "sonner";
 const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
 const RAZORPAY_KEY_ID = "rzp_test_LqWBBDbgwot5lh"; // Replace with new key after regenerating
 
-declare global {
+declare global { 
   interface Window {
     Razorpay: any;
   }
