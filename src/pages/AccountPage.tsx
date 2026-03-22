@@ -7,7 +7,6 @@ import { useCart } from "@/context/CartContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { toast } from "sonner";
-
 const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
 
 interface OrderProduct {
@@ -358,12 +357,37 @@ const AccountPage = () => {
                           <p className="text-sm font-medium text-foreground">{item.label}</p>
                           <p className="text-xs text-muted-foreground">{item.desc}</p>
                         </div>
-                        <button
-                          onClick={() => setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))}
-                          className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${notifications[item.key as keyof typeof notifications] ? "bg-primary" : "bg-muted"}`}
-                        >
-                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${notifications[item.key as keyof typeof notifications] ? "translate-x-5" : "translate-x-0.5"}`} />
-                        </button>
+                        <div style={{ position: "relative", width: "44px", height: "24px", flexShrink: 0 }}>
+                          <style>{`
+                            .ntoggler-input { display: none; }
+                            .ntoggler-label { display: block; position: relative; width: 44px; height: 24px; border: 1px solid #d6d6d6; border-radius: 24px; background: #e4e8e8; cursor: pointer; }
+                            .ntoggler-label::after { display: block; border-radius: 100%; background-color: #d7062a; content: ''; animation: ntoggler-size 0.15s ease-out forwards; position: absolute; top: 50%; left: 25%; width: 18px; height: 18px; transform: translateY(-50%) translateX(-50%); transition: left 0.15s ease-in-out, background-color 0.2s ease-out, width 0.15s, height 0.15s; }
+                            .ntoggler-input:checked + .ntoggler-label::after { left: 75%; background-color: #50ac5d; animation-name: ntoggler-size2; }
+                            .ntoggler-svg { position: absolute; top: 50%; left: 25%; width: 18px; height: 18px; transform: translateY(-50%) translateX(-50%); transition: left 0.15s ease-in-out, width 0.15s, height 0.15s, opacity 0.15s; z-index: 2; opacity: 1; }
+                            .ntoggler-input:checked + .ntoggler-label .ntoggler-svg { left: 75%; }
+                            .ntoggler-input:checked + .ntoggler-label .ntoggler-off { width: 0; height: 0; opacity: 0; }
+                            .ntoggler-input:not(:checked) + .ntoggler-label .ntoggler-on { width: 0; height: 0; opacity: 0; }
+                            .npath { fill: none; stroke: #fefefe; stroke-width: 7px; stroke-linecap: round; stroke-miterlimit: 10; }
+                            @keyframes ntoggler-size { 0%,100% { width: 26px; height: 26px; } 50% { width: 20px; height: 20px; } }
+                            @keyframes ntoggler-size2 { 0%,100% { width: 26px; height: 26px; } 50% { width: 20px; height: 20px; } }
+                          `}</style>
+                          <input
+                            className="ntoggler-input"
+                            id={`toggle-${item.key}`}
+                            type="checkbox"
+                            checked={notifications[item.key as keyof typeof notifications]}
+                            onChange={() => setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))}
+                          />
+                          <label className="ntoggler-label" htmlFor={`toggle-${item.key}`}>
+                            <svg className="ntoggler-svg ntoggler-on" viewBox="0 0 130.2 130.2">
+                              <polyline className="npath" points="100.2,40.2 51.5,88.8 29.8,67.5" />
+                            </svg>
+                            <svg className="ntoggler-svg ntoggler-off" viewBox="0 0 130.2 130.2">
+                              <line className="npath" x1="34.4" y1="34.4" x2="95.8" y2="95.8" />
+                              <line className="npath" x1="95.8" y1="34.4" x2="34.4" y2="95.8" />
+                            </svg>
+                          </label>
+                        </div>
                       </div>
                     ))}
                   </div>

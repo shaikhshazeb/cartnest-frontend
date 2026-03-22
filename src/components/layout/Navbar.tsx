@@ -1,17 +1,22 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FiSearch, FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiChevronDown, FiLogOut, FiSun, FiMoon } from "react-icons/fi";
+import { FiSearch, FiShoppingCart, FiHeart, FiUser, FiMenu, FiX, FiChevronDown, FiLogOut, FiMic } from "react-icons/fi";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useTheme } from "@/context/ThemeContext";
 import { categories } from "@/data/products";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import ThemeToggle from "../Themetoggle";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [catOpen, setCatOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const { totalItems } = useCart();
   const { totalItems: wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
@@ -23,7 +28,52 @@ const Navbar = () => {
     if (searchQuery.trim()) {
       navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery("");
+      setMobileSearchOpen(false);
+      setMobileOpen(false);
     }
+  };
+
+  const startVoiceSearch = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Voice search not supported in this browser");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast.info("Listening... speak now");
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+      setIsListening(false);
+      navigate(`/products?search=${encodeURIComponent(transcript)}`);
+      setMobileSearchOpen(false);
+      toast.success(`Searching for "${transcript}"`);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast.error("Could not hear you. Try again!");
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
   };
 
   return (
@@ -47,7 +97,7 @@ const Navbar = () => {
             <span className="text-secondary text-2xl md:text-3xl font-black tracking-tight">Nest</span>
           </Link>
 
-          {/* Search */}
+          {/* Desktop Search with mic */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl mx-4">
             <div className="flex w-full rounded-xl overflow-hidden border-2 border-primary/20 focus-within:border-primary transition-colors">
               <input
@@ -57,6 +107,15 @@ const Navbar = () => {
                 placeholder="Search products, brands, and more..."
                 className="flex-1 px-4 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground border-0 outline-none"
               />
+              {/* Mic icon inside search bar */}
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                className={`px-3 py-2.5 border-0 transition-colors ${isListening ? "bg-destructive text-white" : "bg-background text-muted-foreground hover:text-primary"}`}
+                title="Voice search"
+              >
+                <FiMic className={`w-4 h-4 ${isListening ? "animate-pulse" : ""}`} />
+              </button>
               <button type="submit" className="px-5 py-2.5 bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
                 <FiSearch className="w-4 h-4" />
               </button>
@@ -87,48 +146,77 @@ const Navbar = () => {
               </Link>
             )}
 
-            {/* Dark/Light mode toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-accent transition-colors text-foreground hover:text-primary"
-              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {isDark ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
-            </button>
+            {/* Dark/Light mode toggle — desktop only */}
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
 
-            {/* Wishlist icon with count */}
+            {/* Wishlist */}
             <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent hidden md:block">
               <FiHeart className="w-5 h-5" />
               {wishlistCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm"
-                >
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
                   {wishlistCount}
                 </motion.span>
               )}
             </Link>
 
-            {/* Cart icon with count */}
+            {/* Cart */}
             <Link to="/cart" className="relative text-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-accent">
               <FiShoppingCart className="w-5 h-5" />
               {totalItems > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-0.5 -right-0.5 bg-secondary text-secondary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm"
-                >
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-0.5 -right-0.5 bg-secondary text-secondary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
                   {totalItems}
                 </motion.span>
               )}
             </Link>
+
+            {/* Mobile search icon */}
+            <button onClick={() => setMobileSearchOpen(!mobileSearchOpen)} className="md:hidden text-foreground p-2 rounded-lg hover:bg-accent">
+              <FiSearch className="w-5 h-5" />
+            </button>
 
             <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-foreground p-2">
               {mobileOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
             </button>
           </div>
         </div>
+
+        {/* Mobile search bar — slides down */}
+        <AnimatePresence>
+          {mobileSearchOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden overflow-hidden border-t border-border bg-card"
+            >
+              <div className="px-4 py-3">
+                <form onSubmit={handleSearch} className="flex w-full rounded-xl overflow-hidden border-2 border-primary/20 focus-within:border-primary transition-colors bg-background">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products..."
+                    autoFocus
+                    className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground border-0 outline-none"
+                  />
+                  {/* Mic icon for mobile */}
+                  <button
+                    type="button"
+                    onClick={startVoiceSearch}
+                    className={`flex-shrink-0 px-3 py-2.5 border-0 transition-colors ${isListening ? "bg-destructive text-white" : "bg-background text-muted-foreground hover:text-primary"}`}
+                  >
+                    <FiMic className={`w-4 h-4 ${isListening ? "animate-pulse" : ""}`} />
+                  </button>
+                  <button type="submit" className="flex-shrink-0 px-4 py-2.5 bg-primary text-primary-foreground">
+                    <FiSearch className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Category bar */}
@@ -140,19 +228,9 @@ const Navbar = () => {
             </button>
             <AnimatePresence>
               {catOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="absolute top-full left-0 bg-card border border-border rounded-xl shadow-xl py-2 w-56 z-50"
-                >
+                <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute top-full left-0 bg-card border border-border rounded-xl shadow-xl py-2 w-56 z-50">
                   {categories.map((cat) => (
-                    <Link
-                      key={cat.id}
-                      to={`/products?category=${cat.slug}`}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent transition-colors text-foreground"
-                      onClick={() => setCatOpen(false)}
-                    >
+                    <Link key={cat.id} to={`/products?category=${cat.slug}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent transition-colors text-foreground" onClick={() => setCatOpen(false)}>
                       <span className="text-lg">{cat.icon}</span>
                       <span className="font-medium">{cat.name}</span>
                     </Link>
@@ -172,30 +250,18 @@ const Navbar = () => {
       {/* Mobile menu */}
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="md:hidden bg-card border-b border-border overflow-hidden"
-          >
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="md:hidden bg-card border-b border-border overflow-hidden">
             <div className="container py-4 space-y-3">
-              <form onSubmit={handleSearch} className="flex rounded-xl overflow-hidden border-2 border-primary/20">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products..."
-                  className="flex-1 px-4 py-2.5 text-sm bg-background border-0 outline-none"
-                />
-                <button type="submit" className="px-4 py-2.5 bg-primary text-primary-foreground">
-                  <FiSearch className="w-4 h-4" />
-                </button>
-              </form>
+              {/* Dark/Light toggle */}
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm font-medium text-foreground">{isDark ? "Dark Mode" : "Light Mode"}</span>
+                <ThemeToggle />
+              </div>
               <div className="space-y-1">
                 {categories.map((cat) => (
                   <Link key={cat.id} to={`/products?category=${cat.slug}`} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors" onClick={() => setMobileOpen(false)}>
                     <span>{cat.icon}</span>
-                    <span className="text-sm font-medium">{cat.name}</span>
+                    <span className="text-sm font-medium text-foreground">{cat.name}</span>
                   </Link>
                 ))}
               </div>
@@ -208,9 +274,6 @@ const Navbar = () => {
                     <Link to="/wishlist" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground" onClick={() => setMobileOpen(false)}>
                       <FiHeart /> Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                     </Link>
-                    <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground w-full">
-                      {isDark ? <FiSun /> : <FiMoon />} {isDark ? "Light Mode" : "Dark Mode"}
-                    </button>
                     <button onClick={() => { logout(); setMobileOpen(false); }} className="flex items-center gap-2 px-3 py-2.5 text-sm text-destructive font-medium">
                       <FiLogOut /> Logout
                     </button>
@@ -220,9 +283,6 @@ const Navbar = () => {
                     <Link to="/login" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground" onClick={() => setMobileOpen(false)}>
                       <FiUser /> Login / Register
                     </Link>
-                    <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground w-full">
-                      {isDark ? <FiSun /> : <FiMoon />} {isDark ? "Light Mode" : "Dark Mode"}
-                    </button>
                   </>
                 )}
               </div>
