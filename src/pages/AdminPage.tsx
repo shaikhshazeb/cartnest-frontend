@@ -332,10 +332,10 @@ const AdminPage = () => {
   const handleDeleteUser = async (username: string) => {
     try {
       const res = await fetch(`${BASE_URL}/admin/users/delete`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
+  method: "POST",  // DELETE ki jagah POST
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username }),
+    });
       const text = await res.text();
       if (res.ok) {
         toast.success("User deleted successfully");
