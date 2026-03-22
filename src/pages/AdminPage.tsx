@@ -121,6 +121,15 @@ const AdminPage = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [showAddCatModal, setShowAddCatModal] = useState(false);
+  const [showEditCatModal, setShowEditCatModal] = useState(false);
+  const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
+  const [selectedCat, setSelectedCat] = useState<any>(null);
+  const [catName, setCatName] = useState("");
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -185,6 +194,22 @@ const AdminPage = () => {
         .then(data => setAllOrders(Array.isArray(data) ? data : []))
         .catch(() => setAllOrders([]))
         .finally(() => setOrdersLoading(false));
+    }
+    if (activeTab === "users") {
+      setUsersLoading(true);
+      fetch(`${BASE_URL}/admin/users/all`)
+        .then(res => res.json())
+        .then(data => setAllUsers(Array.isArray(data) ? data : []))
+        .catch(() => setAllUsers([]))
+        .finally(() => setUsersLoading(false));
+    }
+    if (activeTab === "categories") {
+      setCatLoading(true);
+      fetch(`${BASE_URL}/admin/categories/all`)
+        .then(res => res.json())
+        .then(data => setAllCategories(Array.isArray(data) ? data : []))
+        .catch(() => setAllCategories([]))
+        .finally(() => setCatLoading(false));
     }
   }, [activeTab]);
 
@@ -291,6 +316,66 @@ const AdminPage = () => {
   const openEdit = (p: Product) => { setSelectedProduct(p); setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image }); setShowEditModal(true); };
   const openDelete = (p: Product) => { setSelectedProduct(p); setShowDeleteModal(true); };
 
+  const handleBlockUser = async (username: string, block: boolean) => {
+    try {
+      const res = await fetch(`${BASE_URL}/admin/users/${block ? 'block' : 'unblock'}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      if (res.ok) {
+        toast.success(`User ${block ? 'blocked' : 'unblocked'} successfully`);
+        setAllUsers(prev => prev.map(u => u.username === username ? { ...u, isBlocked: block } : u));
+      } else toast.error("Failed to update user");
+    } catch { toast.error("Something went wrong"); }
+  };
+
+  const loadCategories = () => {
+    setCatLoading(true);
+    fetch(`${BASE_URL}/admin/categories/all`)
+      .then(res => res.json())
+      .then(data => setAllCategories(Array.isArray(data) ? data : []))
+      .catch(() => setAllCategories([]))
+      .finally(() => setCatLoading(false));
+  };
+
+  const handleAddCategory = async () => {
+    if (!catName.trim()) { toast.error("Category name is required"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/categories/add`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryName: catName.trim() }),
+      });
+      if (res.ok) { toast.success("Category added!"); setShowAddCatModal(false); setCatName(""); loadCategories(); }
+      else { const d = await res.json(); toast.error(d.error || "Failed to add category"); }
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
+  };
+
+  const handleEditCategory = async () => {
+    if (!catName.trim()) { toast.error("Category name is required"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/categories/edit`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: selectedCat.id, categoryName: catName.trim() }),
+      });
+      if (res.ok) { toast.success("Category updated!"); setShowEditCatModal(false); setCatName(""); loadCategories(); }
+      else toast.error("Failed to update category");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
+  };
+
+  const handleDeleteCategory = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/admin/categories/delete`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: selectedCat.id }),
+      });
+      if (res.ok) { toast.success("Category deleted!"); setShowDeleteCatModal(false); loadCategories(); }
+      else toast.error("Failed to delete category");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
+  };
+
   return (
     <div className="min-h-screen bg-background flex">
 
@@ -320,6 +405,30 @@ const AdminPage = () => {
           </div>
           <FormField label="Image URL" value={form.imageUrl} onChange={(e: any) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
           {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = 'none'} />}
+        </Modal>
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCatModal && (
+        <Modal title="Add Category" onClose={() => { setShowAddCatModal(false); setCatName(""); }} onSubmit={handleAddCategory} submitLabel="Add Category" submitting={submitting}>
+          <FormField label="Category Name *" value={catName} onChange={(e: any) => setCatName(e.target.value)} placeholder="e.g. Electronics" />
+        </Modal>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditCatModal && (
+        <Modal title="Edit Category" onClose={() => { setShowEditCatModal(false); setCatName(""); }} onSubmit={handleEditCategory} submitLabel="Save Changes" submitting={submitting}>
+          <FormField label="Category Name *" value={catName} onChange={(e: any) => setCatName(e.target.value)} placeholder="e.g. Electronics" />
+        </Modal>
+      )}
+
+      {/* Delete Category Modal */}
+      {showDeleteCatModal && (
+        <Modal title="Delete Category" onClose={() => setShowDeleteCatModal(false)} onSubmit={handleDeleteCategory} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center"><FiAlertTriangle className="w-7 h-7 text-destructive" /></div>
+            <p className="text-sm text-muted-foreground">Delete <span className="font-semibold text-foreground">"{selectedCat?.categoryName}"</span>? This cannot be undone.</p>
+          </div>
         </Modal>
       )}
 
@@ -540,18 +649,31 @@ const AdminPage = () => {
           {/* Categories */}
           {activeTab === "categories" && (
             <div className="space-y-5">
-              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform"><FiPlus className="w-4 h-4" />Add Category</button>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {categories.map((cat) => (
-                  <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between">
-                    <span className="font-semibold text-foreground text-sm">{cat.name}</span>
-                    <div className="flex gap-1">
-                      <button className="p-1.5 hover:bg-accent rounded-lg transition-colors"><FiEdit className="w-3.5 h-3.5 text-info" /></button>
-                      <button className="p-1.5 hover:bg-destructive/5 rounded-lg transition-colors"><FiTrash2 className="w-3.5 h-3.5 text-destructive" /></button>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground font-medium">{allCategories.length} categories</p>
+                <button onClick={() => { setCatName(""); setShowAddCatModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
+                  <FiPlus className="w-4 h-4" />Add Category
+                </button>
               </div>
+              {catLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[1,2,3,4].map(i => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {allCategories.map((cat) => (
+                    <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between hover:border-primary/30 transition-colors">
+                      <span className="font-semibold text-foreground text-sm">{cat.categoryName}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => { setSelectedCat(cat); setCatName(cat.categoryName); setShowEditCatModal(true); }} className="p-1.5 hover:bg-accent rounded-lg transition-colors">
+                          <FiEdit className="w-3.5 h-3.5 text-info" />
+                        </button>
+                        <button onClick={() => { setSelectedCat(cat); setShowDeleteCatModal(true); }} className="p-1.5 hover:bg-destructive/5 rounded-lg transition-colors">
+                          <FiTrash2 className="w-3.5 h-3.5 text-destructive" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -600,24 +722,58 @@ const AdminPage = () => {
           {/* Users */}
           {activeTab === "users" && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                    <th className="p-4 font-semibold">User</th><th className="p-4 font-semibold">Email</th><th className="p-4 font-semibold">Orders</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold">Actions</th>
-                  </tr></thead>
-                  <tbody>
-                    {mockUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                        <td className="p-4 font-semibold text-foreground">{u.name}</td>
-                        <td className="p-4 text-muted-foreground">{u.email}</td>
-                        <td className="p-4 text-foreground">{u.orders}</td>
-                        <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[u.status]}`}>{u.status}</span></td>
-                        <td className="p-4"><button className="text-xs text-primary font-semibold hover:underline">{u.status === "Active" ? "Block" : "Unblock"}</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {usersLoading ? (
+                <div className="p-8 space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                      <th className="p-4 font-semibold">User</th>
+                      <th className="p-4 font-semibold">Email</th>
+                      <th className="p-4 font-semibold">Role</th>
+                      <th className="p-4 font-semibold">Status</th>
+                      <th className="p-4 font-semibold">Joined</th>
+                      <th className="p-4 font-semibold">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                      {allUsers.length === 0 ? (
+                        <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No users found</td></tr>
+                      ) : (
+                        allUsers.map((u) => (
+                          <tr key={u.userId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.username?.[0]?.toUpperCase()}</div>
+                                <span className="font-semibold text-foreground">{u.username}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-muted-foreground">{u.email}</td>
+                            <td className="p-4">
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'}`}>{u.role}</span>
+                            </td>
+                            <td className="p-4">
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.isBlocked ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}>
+                                {u.isBlocked ? 'Blocked' : 'Active'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-muted-foreground text-xs">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '-'}</td>
+                            <td className="p-4">
+                              {u.role !== 'ADMIN' && (
+                                <button
+                                  onClick={() => handleBlockUser(u.username, !u.isBlocked)}
+                                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-destructive/10 text-destructive hover:bg-destructive/20'}`}
+                                >
+                                  {u.isBlocked ? 'Unblock' : 'Block'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
