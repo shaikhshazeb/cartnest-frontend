@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiDollarSign, FiAlertTriangle } from "react-icons/fi";
+import { FiHome, FiPackage, FiGrid, FiShoppingBag, FiUsers, FiBarChart2, FiMenu, FiX, FiLogOut, FiPlus, FiEdit, FiTrash2, FiDollarSign, FiAlertTriangle, FiSlash, FiCheckCircle } from "react-icons/fi";
 import { useAuth } from "@/context/AuthContext";
 import { fetchProductsFromAPI, Product } from "@/data/products";
 import { toast } from "sonner";
@@ -800,15 +800,17 @@ const AdminPage = () => {
                                 <div className="flex gap-1.5">
                                   <button
                                     onClick={() => handleBlockUser(u.username, !u.isBlocked)}
-                                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-warning/10 text-warning hover:bg-warning/20'}`}
+                                    className={`p-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-warning/10 text-warning hover:bg-warning/20'}`}
+                                    title={u.isBlocked ? 'Unblock user' : 'Block user'}
                                   >
-                                    {u.isBlocked ? 'Unblock' : 'Block'}
+                                    {u.isBlocked ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiSlash className="w-3.5 h-3.5" />}
                                   </button>
                                   <button
                                     onClick={() => { setSelectedUserToDelete(u); setShowDeleteUserModal(true); }}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                                    className="p-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors"
+                                    title="Delete user"
                                   >
-                                    Delete
+                                    <FiTrash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               )}
