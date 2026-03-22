@@ -144,6 +144,14 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(false);
   const { logout } = useAuth();
 
+  // Dashboard state
+  const [dashFilter, setDashFilter] = useState("overall");
+  const [dashMonth, setDashMonth] = useState(String(new Date().getMonth() + 1));
+  const [dashYear, setDashYear] = useState(String(new Date().getFullYear()));
+  const [dashDate, setDashDate] = useState(new Date().toISOString().split("T")[0]);
+  const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; categorySales: Record<string, number> } | null>(null);
+  const [dashLoading, setDashLoading] = useState(false);
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -157,7 +165,27 @@ const AdminPage = () => {
     fetchProductsFromAPI().then(setProducts).catch(() => setProducts([])).finally(() => setLoading(false));
   };
 
+  const fetchDashboard = async () => {
+    setDashLoading(true);
+    try {
+      let url = "";
+      if (dashFilter === "overall") url = `${BASE_URL}/admin/business/overall`;
+      else if (dashFilter === "monthly") url = `${BASE_URL}/admin/business/monthly?month=${dashMonth}&year=${dashYear}`;
+      else if (dashFilter === "yearly") url = `${BASE_URL}/admin/business/yearly?year=${dashYear}`;
+      else if (dashFilter === "daily") url = `${BASE_URL}/admin/business/daily?date=${dashDate}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      setDashData(data);
+    } catch {
+      toast.error("Failed to fetch dashboard data");
+    } finally {
+      setDashLoading(false);
+    }
+  };
+
   useEffect(() => { loadProducts(); }, []);
+  useEffect(() => { if (activeTab === "dashboard") fetchDashboard(); }, [activeTab]);
 
   const handleAdd = async () => {
     if (!form.name || !form.price || !form.stock || !form.imageUrl) {
@@ -346,19 +374,149 @@ const AdminPage = () => {
 
           {/* Dashboard */}
           {activeTab === "dashboard" && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                {stats.map((s) => (
-                  <div key={s.label} className="bg-card border border-border rounded-xl p-5 hover-lift">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
-                      <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center`}><s.icon className="w-4 h-4" /></div>
-                    </div>
-                    <p className="text-2xl font-black text-foreground"><AnimatedCounter target={s.value} prefix={s.prefix} /></p>
-                    <span className="text-xs text-success flex items-center gap-1 mt-1.5 font-medium"><FiTrendingUp className="w-3 h-3" />{s.change}</span>
-                  </div>
+            <div className="space-y-6">
+
+              {/* Filter Bar */}
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
+                <span className="text-sm font-semibold text-foreground">Filter:</span>
+                {["overall", "monthly", "yearly", "daily"].map(f => (
+                  <button key={f} onClick={() => setDashFilter(f)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-colors ${dashFilter === f ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>
+                    {f}
+                  </button>
                 ))}
+                {(dashFilter === "monthly") && (
+                  <>
+                    <select value={dashMonth} onChange={e => setDashMonth(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none">
+                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(m => (
+                        <option key={m} value={m}>{new Date(2024, parseInt(m)-1).toLocaleString("default", { month: "long" })}</option>
+                      ))}
+                    </select>
+                    <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
+                  </>
+                )}
+                {dashFilter === "yearly" && (
+                  <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
+                )}
+                {dashFilter === "daily" && (
+                  <input type="date" value={dashDate} onChange={e => setDashDate(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
+                )}
+                <button onClick={fetchDashboard} disabled={dashLoading}
+                  className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60">
+                  {dashLoading ? "Loading..." : "Apply"}
+                </button>
               </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-muted-foreground font-medium">Total Revenue</span>
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><FiDollarSign className="w-4 h-4" /></div>
+                  </div>
+                  {dashLoading ? (
+                    <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-2xl font-black text-foreground">
+                      <AnimatedCounter target={dashData?.totalBusiness || 0} prefix="₹" />
+                    </p>
+                  )}
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-muted-foreground font-medium">Total Orders</span>
+                    <div className="w-9 h-9 rounded-lg bg-secondary/20 text-secondary-foreground flex items-center justify-center"><FiShoppingBag className="w-4 h-4" /></div>
+                  </div>
+                  {dashLoading ? (
+                    <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-2xl font-black text-foreground">
+                      <AnimatedCounter target={dashData?.totalOrders || 0} />
+                    </p>
+                  )}
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5 hover-lift">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-muted-foreground font-medium">Total Products</span>
+                    <div className="w-9 h-9 rounded-lg bg-accent text-accent-foreground flex items-center justify-center"><FiPackage className="w-4 h-4" /></div>
+                  </div>
+                  <p className="text-2xl font-black text-foreground">
+                    <AnimatedCounter target={products.length} />
+                  </p>
+                </div>
+              </div>
+
+              {/* Category Sales Chart */}
+              {dashData?.categorySales && Object.keys(dashData.categorySales).length > 0 && (
+                <div className="bg-card border border-border rounded-xl p-6">
+                  <h3 className="font-bold text-foreground mb-6 text-lg">Category Sales — Units Sold</h3>
+                  <div className="space-y-4">
+                    {Object.entries(dashData.categorySales)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([cat, qty], i) => {
+                        const max = Math.max(...Object.values(dashData.categorySales));
+                        const pct = Math.round((qty / max) * 100);
+                        const colors = ["bg-primary","bg-secondary","bg-info","bg-success","bg-warning","bg-destructive","bg-purple-500","bg-pink-500"];
+                        return (
+                          <div key={cat} className="group">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <span className="text-sm font-semibold text-foreground">{cat}</span>
+                              <span className="text-sm font-bold text-foreground">{qty} <span className="text-xs font-normal text-muted-foreground">units</span></span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                              <div
+                                className={`h-3 rounded-full ${colors[i % colors.length]} transition-all duration-1000 ease-out`}
+                                style={{
+                                  width: `${pct}%`,
+                                  animation: `barGrow${i} 1s ease-out forwards`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Revenue Chart */}
+                  <div className="mt-8">
+                    <h4 className="font-semibold text-foreground mb-4">Revenue Breakdown</h4>
+                    <div className="flex items-end justify-around gap-2 h-40">
+                      {Object.entries(dashData.categorySales)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 6)
+                        .map(([cat, qty], i) => {
+                          const max = Math.max(...Object.values(dashData.categorySales));
+                          const heightPct = Math.max(10, Math.round((qty / max) * 100));
+                          const colors = ["#16a34a","#d4a017","#3b82f6","#22c55e","#f59e0b","#ef4444"];
+                          return (
+                            <div key={cat} className="flex flex-col items-center gap-1 flex-1">
+                              <span className="text-xs font-bold text-foreground">{qty}</span>
+                              <div
+                                className="w-full rounded-t-lg transition-all duration-1000 ease-out"
+                                style={{
+                                  height: `${heightPct}%`,
+                                  background: colors[i % colors.length],
+                                  minHeight: "8px",
+                                  animation: `barRise 1.2s ease-out ${i * 0.1}s both`,
+                                }}
+                              />
+                              <span className="text-[10px] text-muted-foreground text-center leading-tight line-clamp-1 w-full">{cat.split(" ")[0]}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <style>{`
+                @keyframes barRise {
+                  from { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+                  to { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+                }
+              `}</style>
+
+              {/* Recent Orders */}
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="font-bold text-foreground mb-5 text-lg">Recent Orders</h3>
                 <div className="overflow-x-auto">
