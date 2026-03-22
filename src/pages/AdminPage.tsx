@@ -729,10 +729,11 @@ const AdminPage = () => {
                       <th className="p-4 font-semibold">Date</th>
                       <th className="p-4 font-semibold">Total</th>
                       <th className="p-4 font-semibold">Status</th>
+                      <th className="p-4 font-semibold">Update</th>
                     </tr></thead>
                     <tbody>
                       {allOrders.length === 0 ? (
-                        <tr><td colSpan={5} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
+                        <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
                       ) : (
                         allOrders.map((o) => (
                           <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
@@ -744,8 +745,38 @@ const AdminPage = () => {
                               <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
                                 o.status === 'SUCCESS' ? 'bg-success/10 text-success' :
                                 o.status === 'PENDING' ? 'bg-warning/10 text-warning' :
+                                o.status === 'SHIPPED' ? 'bg-info/10 text-info' :
+                                o.status === 'DELIVERED' ? 'bg-success/10 text-success' :
+                                o.status === 'PROCESSING' ? 'bg-secondary/20 text-secondary-foreground' :
+                                o.status === 'CANCELLED' ? 'bg-destructive/10 text-destructive' :
                                 'bg-destructive/10 text-destructive'
                               }`}>{o.status}</span>
+                            </td>
+                            <td className="p-4">
+                              <select
+                                value={o.status}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value;
+                                  try {
+                                    const res = await fetch(`${BASE_URL}/admin/orders/update-status`, {
+                                      method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ orderId: o.orderId, status: newStatus }),
+                                    });
+                                    if (res.ok) {
+                                      toast.success("Status updated!");
+                                      setAllOrders(prev => prev.map(order =>
+                                        order.orderId === o.orderId ? { ...order, status: newStatus } : order
+                                      ));
+                                    } else toast.error("Failed to update status");
+                                  } catch { toast.error("Something went wrong"); }
+                                }}
+                                className="px-2 py-1.5 border border-border rounded-lg text-xs bg-background text-foreground outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                              >
+                                {['PENDING','SUCCESS','FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
                             </td>
                           </tr>
                         ))
