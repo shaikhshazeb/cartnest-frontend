@@ -332,14 +332,20 @@ const AdminPage = () => {
   const handleDeleteUser = async (username: string) => {
     try {
       const res = await fetch(`${BASE_URL}/admin/users/delete`, {
-        method: "DELETE", headers: { "Content-Type": "application/json" },
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),
       });
+      const text = await res.text();
       if (res.ok) {
         toast.success("User deleted successfully");
         setAllUsers(prev => prev.filter(u => u.username !== username));
-      } else toast.error("Failed to delete user");
-    } catch { toast.error("Something went wrong"); }
+      } else {
+        toast.error("Failed to delete: " + text);
+      }
+    } catch (e: any) {
+      toast.error("Error: " + e.message);
+    }
   };
 
   const loadCategories = () => {
