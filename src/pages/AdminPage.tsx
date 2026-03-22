@@ -329,6 +329,19 @@ const AdminPage = () => {
     } catch { toast.error("Something went wrong"); }
   };
 
+  const handleDeleteUser = async (username: string) => {
+    try {
+      const res = await fetch(`${BASE_URL}/admin/users/delete`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      if (res.ok) {
+        toast.success("User deleted successfully");
+        setAllUsers(prev => prev.filter(u => u.username !== username));
+      } else toast.error("Failed to delete user");
+    } catch { toast.error("Something went wrong"); }
+  };
+
   const loadCategories = () => {
     setCatLoading(true);
     fetch(`${BASE_URL}/admin/categories/all`)
@@ -759,12 +772,20 @@ const AdminPage = () => {
                             <td className="p-4 text-muted-foreground text-xs">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '-'}</td>
                             <td className="p-4">
                               {u.role !== 'ADMIN' && (
-                                <button
-                                  onClick={() => handleBlockUser(u.username, !u.isBlocked)}
-                                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-destructive/10 text-destructive hover:bg-destructive/20'}`}
-                                >
-                                  {u.isBlocked ? 'Unblock' : 'Block'}
-                                </button>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => handleBlockUser(u.username, !u.isBlocked)}
+                                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-warning/10 text-warning hover:bg-warning/20'}`}
+                                  >
+                                    {u.isBlocked ? 'Unblock' : 'Block'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.username)}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>
