@@ -9,6 +9,7 @@ export interface Product {
   rating: number;
   reviews: number;
   inStock: boolean;
+  stock: number;
   badge?: "sale" | "new" | "hot";
   specs?: Record<string, string>;
 }
@@ -24,7 +25,6 @@ export const categories = [
   { id: 8, name: "Automotive", icon: "🚗", slug: "automotive" },
 ];
 
-// ─── API Integration ───────────────────────────────────────────────
 const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
 
 export interface ApiProduct {
@@ -55,5 +55,6 @@ export async function fetchProductsFromAPI(category?: string): Promise<Product[]
     rating: 4.5,
     reviews: 100,
     inStock: p.stock > 0,
+    stock: p.stock,  // stock field add kiya
   }));
 }

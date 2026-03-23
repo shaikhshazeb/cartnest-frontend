@@ -132,6 +132,8 @@ const AdminPage = () => {
   const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
   const [selectedCat, setSelectedCat] = useState<any>(null);
   const [catName, setCatName] = useState("");
+  const [editingStockId, setEditingStockId] = useState<number | null>(null);
+  const [stockInput, setStockInput] = useState("");
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -354,6 +356,21 @@ const AdminPage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleUpdateStock = async (productId: number, newStock: number) => {
+    try {
+      const res = await fetch(`${BASE_URL}/admin/products/update-stock`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, stock: newStock }),
+      });
+      if (res.ok) {
+        toast.success("Stock updated!");
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: newStock, inStock: newStock > 0 } : p));
+        setEditingStockId(null);
+      } else toast.error("Failed to update stock");
+    } catch { toast.error("Something went wrong"); }
   };
 
   const loadCategories = () => {
@@ -660,7 +677,7 @@ const AdminPage = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                        <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Actions</th>
+                        <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Stock</th><th className="p-4 font-semibold">Actions</th>
                       </tr></thead>
                       <tbody>
                         {products.map((p) => (
@@ -675,6 +692,38 @@ const AdminPage = () => {
                               </div>
                             </td>
                             <td className="p-4 font-bold text-foreground">₹{p.price}</td>
+                            <td className="p-4">
+                              {editingStockId === p.id ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    value={stockInput}
+                                    onChange={e => setStockInput(e.target.value)}
+                                    className="w-20 px-2 py-1 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+                                    autoFocus
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') handleUpdateStock(p.id, parseInt(stockInput));
+                                      if (e.key === 'Escape') setEditingStockId(null);
+                                    }}
+                                  />
+                                  <button onClick={() => handleUpdateStock(p.id, parseInt(stockInput))} className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-lg">Save</button>
+                                  <button onClick={() => setEditingStockId(null)} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg">✕</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingStockId(p.id); setStockInput(String(p.stock ?? 0)); }}
+                                  className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                                >
+                                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+                                    (p.stock ?? 0) === 0 ? 'bg-destructive/10 text-destructive' :
+                                    (p.stock ?? 0) <= 5 ? 'bg-warning/10 text-warning' :
+                                    'bg-success/10 text-success'
+                                  }`}>
+                                    {(p.stock ?? 0) === 0 ? 'Out of Stock' : (p.stock ?? 0) <= 5 ? `⚠ Low: ${p.stock}` : p.stock}
+                                  </span>
+                                </button>
+                              )}
+                            </td>
                             <td className="p-4">
                               <div className="flex gap-1.5">
                                 <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors"><FiEdit className="w-3.5 h-3.5" />Edit</button>
