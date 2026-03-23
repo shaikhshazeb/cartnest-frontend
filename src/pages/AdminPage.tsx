@@ -116,7 +116,7 @@ const AdminPage = () => {
   const [dashMonth, setDashMonth] = useState(String(new Date().getMonth() + 1));
   const [dashYear, setDashYear] = useState(String(new Date().getFullYear()));
   const [dashDate, setDashDate] = useState(new Date().toISOString().split("T")[0]);
-  const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; categorySales: Record<string, number> } | null>(null);
+  const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; totalUsers: number; categorySales: Record<string, number> } | null>(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
@@ -544,7 +544,7 @@ const AdminPage = () => {
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                 <div className="bg-card border border-border rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-muted-foreground font-medium">Total Revenue</span>
@@ -565,6 +565,13 @@ const AdminPage = () => {
                     <div className="w-9 h-9 rounded-lg bg-accent text-accent-foreground flex items-center justify-center"><FiPackage className="w-4 h-4" /></div>
                   </div>
                   <p className="text-2xl font-black text-foreground"><AnimatedCounter target={products.length} /></p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-muted-foreground font-medium">Total Users</span>
+                    <div className="w-9 h-9 rounded-lg bg-info/10 text-info flex items-center justify-center"><FiUsers className="w-4 h-4" /></div>
+                  </div>
+                  {dashLoading ? <div className="h-8 w-20 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalUsers || 0} /></p>}
                 </div>
               </div>
 
