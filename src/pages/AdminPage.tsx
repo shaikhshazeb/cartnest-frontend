@@ -134,6 +134,10 @@ const AdminPage = () => {
   const [catName, setCatName] = useState("");
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [stockInput, setStockInput] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
+  const [userSearch, setUserSearch] = useState("");
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -316,6 +320,24 @@ const AdminPage = () => {
       else toast.error("Failed to delete product");
     } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
+
+  // Filtered lists
+  const filteredProducts = products.filter(p =>
+    p.title.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.description?.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const filteredOrders = allOrders.filter(o => {
+    const matchSearch = o.orderId?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+      String(o.username).toLowerCase().includes(orderSearch.toLowerCase());
+    const matchStatus = orderStatusFilter === "ALL" || o.status === orderStatusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const filteredUsers = allUsers.filter(u =>
+    u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   const openEdit = (p: Product) => { setSelectedProduct(p); setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image }); setShowEditModal(true); };
   const openDelete = (p: Product) => { setSelectedProduct(p); setShowDeleteModal(true); };
@@ -664,11 +686,23 @@ const AdminPage = () => {
           {/* Products */}
           {activeTab === "products" && (
             <div className="space-y-5">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground font-medium">{products.length} products</p>
-                <button onClick={() => { setForm(emptyForm); setShowAddModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
-                  <FiPlus className="w-4 h-4" />Add Product
-                </button>
+              <div className="flex flex-col sm:flex-row justify-between gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-muted-foreground font-medium">{filteredProducts.length} products</p>
+                  <button onClick={() => { setForm(emptyForm); setShowAddModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
+                    <FiPlus className="w-4 h-4" />Add Product
+                  </button>
+                </div>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
                 {loading ? (
@@ -680,7 +714,7 @@ const AdminPage = () => {
                         <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Stock</th><th className="p-4 font-semibold">Actions</th>
                       </tr></thead>
                       <tbody>
-                        {products.map((p) => (
+                        {filteredProducts.map((p) => (
                           <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                             <td className="p-4">
                               <div className="flex items-center gap-3">
@@ -773,6 +807,25 @@ const AdminPage = () => {
 
           {/* Orders */}
           {activeTab === "orders" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={orderSearch}
+                    onChange={e => setOrderSearch(e.target.value)}
+                    placeholder="Search by Order ID or Customer..."
+                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </div>
+                <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} className="px-3 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
+                  {['ALL','PENDING','SUCCESS','FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <p className="text-sm text-muted-foreground font-medium self-center">{filteredOrders.length} orders</p>
+              </div>
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {ordersLoading ? (
                 <div className="p-8 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
@@ -788,10 +841,10 @@ const AdminPage = () => {
                       <th className="p-4 font-semibold">Update</th>
                     </tr></thead>
                     <tbody>
-                      {allOrders.length === 0 ? (
+                      {filteredOrders.length === 0 ? (
                         <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
                       ) : (
-                        allOrders.map((o) => (
+                        filteredOrders.map((o) => (
                           <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                             <td className="p-4 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
                             <td className="p-4 text-muted-foreground">{o.username}</td>
@@ -842,10 +895,25 @@ const AdminPage = () => {
                 </div>
               )}
             </div>
+            </div>
           )}
 
           {/* Users */}
           {activeTab === "users" && (
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search by username or email..."
+                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium self-center">{filteredUsers.length} users</p>
+              </div>
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {usersLoading ? (
                 <div className="p-8 space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
@@ -861,10 +929,10 @@ const AdminPage = () => {
                       <th className="p-4 font-semibold">Actions</th>
                     </tr></thead>
                     <tbody>
-                      {allUsers.length === 0 ? (
+                      {filteredUsers.length === 0 ? (
                         <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No users found</td></tr>
                       ) : (
-                        allUsers.map((u) => (
+                        filteredUsers.map((u) => (
                           <tr key={u.userId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                             <td className="p-4">
                               <div className="flex items-center gap-2">
@@ -909,6 +977,7 @@ const AdminPage = () => {
                   </table>
                 </div>
               )}
+            </div>
             </div>
           )}
 
