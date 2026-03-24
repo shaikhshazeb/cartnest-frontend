@@ -6,6 +6,7 @@ import { fetchProductsFromAPI, Product } from "@/data/products";
 import { toast } from "sonner";
 
 const BASE_URL = "https://cartnest-backend-ukav.onrender.com";
+const PAGE_SIZE = 10;
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: FiBarChart2 },
@@ -15,27 +16,14 @@ const tabs = [
   { id: "users", label: "Users", icon: FiUsers },
 ];
 
-const mockOrders = [
-  { id: "ORD-001", customer: "John Doe", total: 129.99, status: "Delivered", payment: "Paid", date: "Mar 8" },
-  { id: "ORD-002", customer: "Jane Smith", total: 299.99, status: "Shipped", payment: "Paid", date: "Mar 7" },
-  { id: "ORD-003", customer: "Bob Wilson", total: 79.99, status: "Processing", payment: "Pending", date: "Mar 7" },
-  { id: "ORD-004", customer: "Alice Brown", total: 449.99, status: "Processing", payment: "Paid", date: "Mar 6" },
-];
-
-const mockUsers = [
-  { id: 1, name: "John Doe", email: "john@example.com", orders: 12, status: "Active" },
-  { id: 2, name: "Jane Smith", email: "jane@example.com", orders: 8, status: "Active" },
-  { id: 3, name: "Bob Wilson", email: "bob@example.com", orders: 3, status: "Blocked" },
-];
-
 const statusColors: Record<string, string> = {
-  Delivered: "bg-success/10 text-success",
-  Shipped: "bg-info/10 text-info",
-  Processing: "bg-warning/10 text-warning",
-  Paid: "bg-success/10 text-success",
-  Pending: "bg-warning/10 text-warning",
-  Active: "bg-success/10 text-success",
-  Blocked: "bg-destructive/10 text-destructive",
+  SUCCESS: "bg-success/10 text-success",
+  PENDING: "bg-warning/10 text-warning",
+  SHIPPED: "bg-info/10 text-info",
+  DELIVERED: "bg-success/10 text-success",
+  PROCESSING: "bg-secondary/20 text-secondary-foreground",
+  CANCELLED: "bg-destructive/10 text-destructive",
+  FAILED: "bg-destructive/10 text-destructive",
 };
 
 const categories = [
@@ -104,6 +92,29 @@ const FormField = ({ label, type = "text", value, onChange, placeholder, as: As 
   </div>
 );
 
+const SearchBar = ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) => (
+  <div className="relative flex-1">
+    <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary" />
+    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  </div>
+);
+
+const PaginationBar = ({ page, setPage, total }: { page: number; setPage: (p: number) => void; total: number }) => {
+  if (total <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-2 p-4 border-t border-border flex-wrap">
+      <button onClick={() => setPage(page - 1)} disabled={page === 1} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-40 hover:bg-accent transition-colors">← Prev</button>
+      {Array.from({ length: total }, (_, i) => i + 1).map(p => (
+        <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 text-sm rounded-lg transition-colors ${page === p ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}>{p}</button>
+      ))}
+      <button onClick={() => setPage(page + 1)} disabled={page === total} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-40 hover:bg-accent transition-colors">Next →</button>
+    </div>
+  );
+};
+
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -111,7 +122,7 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(false);
   const { logout } = useAuth();
 
-  // Dashboard state
+  // Dashboard
   const [dashFilter, setDashFilter] = useState("overall");
   const [dashMonth, setDashMonth] = useState(String(new Date().getMonth() + 1));
   const [dashYear, setDashYear] = useState(String(new Date().getFullYear()));
@@ -119,12 +130,23 @@ const AdminPage = () => {
   const [dashData, setDashData] = useState<{ totalBusiness: number; totalOrders: number; totalUsers: number; categorySales: Record<string, number> } | null>(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+
+  // Orders
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
+  const [orderPage, setOrderPage] = useState(1);
+
+  // Users
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
   const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
   const [selectedUserToDelete, setSelectedUserToDelete] = useState<any>(null);
+
+  // Categories
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [catLoading, setCatLoading] = useState(false);
   const [showAddCatModal, setShowAddCatModal] = useState(false);
@@ -132,14 +154,14 @@ const AdminPage = () => {
   const [showDeleteCatModal, setShowDeleteCatModal] = useState(false);
   const [selectedCat, setSelectedCat] = useState<any>(null);
   const [catName, setCatName] = useState("");
+
+  // Products
+  const [productSearch, setProductSearch] = useState("");
+  const [productPage, setProductPage] = useState(1);
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [stockInput, setStockInput] = useState("");
-  const [productSearch, setProductSearch] = useState("");
-  const [orderSearch, setOrderSearch] = useState("");
-  const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
-  const [userSearch, setUserSearch] = useState("");
 
-  // Modal states
+  // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -147,7 +169,7 @@ const AdminPage = () => {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
-  // Chart refs
+  // Charts
   const barChartRef = useRef<any>(null);
   const hbarChartRef = useRef<any>(null);
   const donutChartRef = useRef<any>(null);
@@ -158,13 +180,34 @@ const AdminPage = () => {
     chartInstances.current = [];
   };
 
-  // Load products
+  // Filtered & paginated
+  const filteredProducts = products.filter(p =>
+    p.title.toLowerCase().includes(productSearch.toLowerCase()) ||
+    (p.description || "").toLowerCase().includes(productSearch.toLowerCase())
+  );
+  const filteredOrders = allOrders.filter(o => {
+    const matchSearch = (o.orderId || "").toLowerCase().includes(orderSearch.toLowerCase()) ||
+      String(o.username || "").toLowerCase().includes(orderSearch.toLowerCase());
+    const matchStatus = orderStatusFilter === "ALL" || o.status === orderStatusFilter;
+    return matchSearch && matchStatus;
+  });
+  const filteredUsers = allUsers.filter(u =>
+    (u.username || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  const paginate = <T,>(arr: T[], page: number) => arr.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = (arr: any[]) => Math.max(1, Math.ceil(arr.length / PAGE_SIZE));
+
+  const paginatedProducts = paginate(filteredProducts, productPage);
+  const paginatedOrders = paginate(filteredOrders, orderPage);
+  const paginatedUsers = paginate(filteredUsers, userPage);
+
   const loadProducts = () => {
     setLoading(true);
     fetchProductsFromAPI().then(setProducts).catch(() => setProducts([])).finally(() => setLoading(false));
   };
 
-  // Fetch dashboard data
   const fetchDashboard = async () => {
     setDashLoading(true);
     try {
@@ -176,20 +219,13 @@ const AdminPage = () => {
       const res = await fetch(url);
       const data = await res.json();
       setDashData(data);
-    } catch {
-      toast.error("Failed to fetch dashboard data");
-    } finally {
-      setDashLoading(false);
-    }
-
-    // Fetch recent orders
+    } catch { toast.error("Failed to fetch dashboard data"); }
+    finally { setDashLoading(false); }
     try {
       const res = await fetch(`${BASE_URL}/admin/business/recent-orders`);
       const data = await res.json();
       setRecentOrders(Array.isArray(data) ? data : []);
-    } catch {
-      setRecentOrders([]);
-    }
+    } catch { setRecentOrders([]); }
   };
 
   useEffect(() => { loadProducts(); }, []);
@@ -198,96 +234,70 @@ const AdminPage = () => {
     if (activeTab === "orders") {
       setOrdersLoading(true);
       fetch(`${BASE_URL}/admin/business/all-orders`)
-        .then(res => res.json())
-        .then(data => setAllOrders(Array.isArray(data) ? data : []))
-        .catch(() => setAllOrders([]))
-        .finally(() => setOrdersLoading(false));
+        .then(r => r.json()).then(d => setAllOrders(Array.isArray(d) ? d : []))
+        .catch(() => setAllOrders([])).finally(() => setOrdersLoading(false));
     }
     if (activeTab === "users") {
       setUsersLoading(true);
       fetch(`${BASE_URL}/admin/users/all`)
-        .then(res => res.json())
-        .then(data => setAllUsers(Array.isArray(data) ? data : []))
-        .catch(() => setAllUsers([]))
-        .finally(() => setUsersLoading(false));
+        .then(r => r.json()).then(d => setAllUsers(Array.isArray(d) ? d : []))
+        .catch(() => setAllUsers([])).finally(() => setUsersLoading(false));
     }
     if (activeTab === "categories") {
       setCatLoading(true);
       fetch(`${BASE_URL}/admin/categories/all`)
-        .then(res => res.json())
-        .then(data => setAllCategories(Array.isArray(data) ? data : []))
-        .catch(() => setAllCategories([]))
-        .finally(() => setCatLoading(false));
+        .then(r => r.json()).then(d => setAllCategories(Array.isArray(d) ? d : []))
+        .catch(() => setAllCategories([])).finally(() => setCatLoading(false));
     }
   }, [activeTab]);
 
-  // Init charts when dashData changes
   useEffect(() => {
     if (!dashData) return;
-
-    const GREEN = '#3b6d11', LGREEN = '#639922', GOLD = '#d4a017', TEAL = '#1D9E75', CORAL = '#D85A30', PURPLE = '#7F77DD';
-    const COLORS = [GREEN, GOLD, TEAL, CORAL, LGREEN, PURPLE, '#BA7517', '#D4537E'];
-
+    const GREEN = "#3b6d11", LGREEN = "#639922", GOLD = "#d4a017", TEAL = "#1D9E75", CORAL = "#D85A30", PURPLE = "#7F77DD";
+    const COLORS = [GREEN, GOLD, TEAL, CORAL, LGREEN, PURPLE, "#BA7517", "#D4537E"];
     const initCharts = (ChartJS: any) => {
       destroyCharts();
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       const rev = dashData.totalBusiness || 0;
       const mockMonthly = months.map(() => Math.round((rev / 12) * (0.5 + Math.random() * 0.8)));
       mockMonthly[11] = Math.round(rev * 0.15);
-
       const bc = barChartRef.current;
-      if (bc) {
-        chartInstances.current.push(new ChartJS(bc, {
-          type: 'bar',
-          data: {
-            labels: months,
-            datasets: [
-              { label: 'Revenue', data: mockMonthly, backgroundColor: GREEN, borderRadius: 4 },
-              { label: 'Trend', data: mockMonthly.map((_: number, i: number) => Math.round(mockMonthly.slice(0, i + 1).reduce((a: number, b: number) => a + b, 0) / (i + 1))), type: 'line', borderColor: GOLD, backgroundColor: 'transparent', pointBackgroundColor: GOLD, pointRadius: 3, tension: 0.4, borderWidth: 2 }
-            ]
-          },
-          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1200, easing: 'easeOutQuart' }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#888', font: { size: 10 }, callback: (v: number) => '₹' + (v / 1000).toFixed(0) + 'k' }, grid: { color: 'rgba(128,128,128,0.1)' } } } }
-        }));
-      }
-
+      if (bc) chartInstances.current.push(new ChartJS(bc, {
+        type: "bar",
+        data: { labels: months, datasets: [
+          { label: "Revenue", data: mockMonthly, backgroundColor: GREEN, borderRadius: 4 },
+          { label: "Trend", data: mockMonthly.map((_: number, i: number) => Math.round(mockMonthly.slice(0, i + 1).reduce((a: number, b: number) => a + b, 0) / (i + 1))), type: "line", borderColor: GOLD, backgroundColor: "transparent", pointBackgroundColor: GOLD, pointRadius: 3, tension: 0.4, borderWidth: 2 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1200 }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#888", font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: "#888", font: { size: 10 }, callback: (v: number) => "₹" + (v / 1000).toFixed(0) + "k" }, grid: { color: "rgba(128,128,128,0.1)" } } } }
+      }));
       const cats = Object.keys(dashData.categorySales || {});
       const vals = Object.values(dashData.categorySales || {});
       const hb = hbarChartRef.current;
-      if (hb && cats.length > 0) {
-        chartInstances.current.push(new ChartJS(hb, {
-          type: 'bar',
-          data: { labels: cats, datasets: [{ data: vals, backgroundColor: COLORS.slice(0, cats.length), borderRadius: 4 }] },
-          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 1400, easing: 'easeOutBack' }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: 'rgba(128,128,128,0.1)' } }, y: { ticks: { color: '#888', font: { size: 10 } }, grid: { display: false } } } }
-        }));
-      }
-
+      if (hb && cats.length > 0) chartInstances.current.push(new ChartJS(hb, {
+        type: "bar",
+        data: { labels: cats, datasets: [{ data: vals, backgroundColor: COLORS.slice(0, cats.length), borderRadius: 4 }] },
+        options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: { duration: 1400 }, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#888", font: { size: 10 } } }, y: { ticks: { color: "#888", font: { size: 10 } }, grid: { display: false } } } }
+      }));
       const dc = donutChartRef.current;
-      if (dc) {
-        chartInstances.current.push(new ChartJS(dc, {
-          type: 'doughnut',
-          data: { labels: ['Success','Processing','Shipped','Failed'], datasets: [{ data: [65, 20, 10, 5], backgroundColor: [GREEN, GOLD, TEAL, CORAL], borderWidth: 2, borderColor: 'transparent' }] },
-          options: { responsive: true, maintainAspectRatio: false, animation: { animateRotate: true, duration: 1500 }, plugins: { legend: { display: false } }, cutout: '65%' }
-        }));
-      }
+      if (dc) chartInstances.current.push(new ChartJS(dc, {
+        type: "doughnut",
+        data: { labels: ["Success","Processing","Shipped","Failed"], datasets: [{ data: [65, 20, 10, 5], backgroundColor: [GREEN, GOLD, TEAL, CORAL], borderWidth: 2, borderColor: "transparent" }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: { animateRotate: true, duration: 1500 }, plugins: { legend: { display: false } }, cutout: "65%" }
+      }));
     };
-
-    if ((window as any).Chart) {
-      initCharts((window as any).Chart);
-    } else {
-      const existing = document.getElementById('chartjs-cdn');
+    if ((window as any).Chart) initCharts((window as any).Chart);
+    else {
+      const existing = document.getElementById("chartjs-cdn");
       if (!existing) {
-        const s = document.createElement('script');
-        s.id = 'chartjs-cdn';
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+        const s = document.createElement("script");
+        s.id = "chartjs-cdn";
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
         s.onload = () => initCharts((window as any).Chart);
         document.head.appendChild(s);
       } else {
-        const wait = setInterval(() => {
-          if ((window as any).Chart) { clearInterval(wait); initCharts((window as any).Chart); }
-        }, 100);
+        const wait = setInterval(() => { if ((window as any).Chart) { clearInterval(wait); initCharts((window as any).Chart); } }, 100);
       }
     }
-
     return () => destroyCharts();
   }, [dashData]);
 
@@ -321,37 +331,23 @@ const AdminPage = () => {
     } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
-  // Filtered lists
-  const filteredProducts = products.filter(p =>
-    p.title.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.description?.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const handleUpdateStock = async (productId: number, newStock: number) => {
+    try {
+      const res = await fetch(`${BASE_URL}/admin/products/update-stock`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId, stock: newStock }) });
+      if (res.ok) { toast.success("Stock updated!"); setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: newStock, inStock: newStock > 0 } : p)); setEditingStockId(null); }
+      else toast.error("Failed to update stock");
+    } catch { toast.error("Something went wrong"); }
+  };
 
-  const filteredOrders = allOrders.filter(o => {
-    const matchSearch = o.orderId?.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      String(o.username).toLowerCase().includes(orderSearch.toLowerCase());
-    const matchStatus = orderStatusFilter === "ALL" || o.status === orderStatusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  const filteredUsers = allUsers.filter(u =>
-    u.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
-
-  const openEdit = (p: Product) => { setSelectedProduct(p); setForm({ name: p.title, description: p.description, price: String(p.price), stock: "10", categoryId: "1", imageUrl: p.image }); setShowEditModal(true); };
+  const openEdit = (p: Product) => { setSelectedProduct(p); setForm({ name: p.title, description: p.description, price: String(p.price), stock: String((p as any).stock || 0), categoryId: "1", imageUrl: p.image }); setShowEditModal(true); };
   const openDelete = (p: Product) => { setSelectedProduct(p); setShowDeleteModal(true); };
 
+  // User handlers
   const handleBlockUser = async (username: string, block: boolean) => {
     try {
-      const res = await fetch(`${BASE_URL}/admin/users/${block ? 'block' : 'unblock'}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
-      if (res.ok) {
-        toast.success(`User ${block ? 'blocked' : 'unblocked'} successfully`);
-        setAllUsers(prev => prev.map(u => u.username === username ? { ...u, isBlocked: block } : u));
-      } else toast.error("Failed to update user");
+      const res = await fetch(`${BASE_URL}/admin/users/${block ? "block" : "unblock"}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username }) });
+      if (res.ok) { toast.success(`User ${block ? "blocked" : "unblocked"}`); setAllUsers(prev => prev.map(u => u.username === username ? { ...u, isBlocked: block } : u)); }
+      else toast.error("Failed to update user");
     } catch { toast.error("Something went wrong"); }
   };
 
@@ -359,92 +355,48 @@ const AdminPage = () => {
     if (!selectedUserToDelete) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/users/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: selectedUserToDelete.username }),
-      });
-      const text = await res.text();
-      if (res.ok) {
-        toast.success("User deleted successfully");
-        setAllUsers(prev => prev.filter(u => u.username !== selectedUserToDelete.username));
-        setShowDeleteUserModal(false);
-        setSelectedUserToDelete(null);
-      } else {
-        toast.error("Failed: " + text);
-      }
-    } catch (e: any) {
-      toast.error("Error: " + e.message);
-    } finally {
-      setSubmitting(false);
-    }
+      const res = await fetch(`${BASE_URL}/admin/users/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: selectedUserToDelete.username }) });
+      if (res.ok) { toast.success("User deleted!"); setAllUsers(prev => prev.filter(u => u.username !== selectedUserToDelete.username)); setShowDeleteUserModal(false); setSelectedUserToDelete(null); }
+      else toast.error("Failed to delete user");
+    } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
-  const handleUpdateStock = async (productId: number, newStock: number) => {
-    try {
-      const res = await fetch(`${BASE_URL}/admin/products/update-stock`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, stock: newStock }),
-      });
-      if (res.ok) {
-        toast.success("Stock updated!");
-        setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: newStock, inStock: newStock > 0 } : p));
-        setEditingStockId(null);
-      } else toast.error("Failed to update stock");
-    } catch { toast.error("Something went wrong"); }
-  };
-
+  // Category handlers
   const loadCategories = () => {
     setCatLoading(true);
-    fetch(`${BASE_URL}/admin/categories/all`)
-      .then(res => res.json())
-      .then(data => setAllCategories(Array.isArray(data) ? data : []))
-      .catch(() => setAllCategories([]))
-      .finally(() => setCatLoading(false));
+    fetch(`${BASE_URL}/admin/categories/all`).then(r => r.json()).then(d => setAllCategories(Array.isArray(d) ? d : [])).catch(() => setAllCategories([])).finally(() => setCatLoading(false));
   };
-
   const handleAddCategory = async () => {
-    if (!catName.trim()) { toast.error("Category name is required"); return; }
+    if (!catName.trim()) { toast.error("Category name required"); return; }
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/categories/add`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryName: catName.trim() }),
-      });
+      const res = await fetch(`${BASE_URL}/admin/categories/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoryName: catName.trim() }) });
       if (res.ok) { toast.success("Category added!"); setShowAddCatModal(false); setCatName(""); loadCategories(); }
-      else { const d = await res.json(); toast.error(d.error || "Failed to add category"); }
+      else { const d = await res.json(); toast.error(d.error || "Failed"); }
     } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
-
   const handleEditCategory = async () => {
-    if (!catName.trim()) { toast.error("Category name is required"); return; }
+    if (!catName.trim()) { toast.error("Category name required"); return; }
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/categories/edit`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId: selectedCat.id, categoryName: catName.trim() }),
-      });
+      const res = await fetch(`${BASE_URL}/admin/categories/edit`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoryId: selectedCat.id, categoryName: catName.trim() }) });
       if (res.ok) { toast.success("Category updated!"); setShowEditCatModal(false); setCatName(""); loadCategories(); }
-      else toast.error("Failed to update category");
+      else toast.error("Failed to update");
     } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
-
   const handleDeleteCategory = async () => {
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/admin/categories/delete`, {
-        method: "DELETE", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId: selectedCat.id }),
-      });
+      const res = await fetch(`${BASE_URL}/admin/categories/delete`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoryId: selectedCat.id }) });
       if (res.ok) { toast.success("Category deleted!"); setShowDeleteCatModal(false); loadCategories(); }
-      else toast.error("Failed to delete category");
+      else toast.error("Failed to delete");
     } catch { toast.error("Something went wrong"); } finally { setSubmitting(false); }
   };
 
   return (
     <div className="min-h-screen bg-background flex">
 
+      {/* Modals */}
       {showAddModal && (
         <Modal title="Add New Product" onClose={() => { setShowAddModal(false); setForm(emptyForm); }} onSubmit={handleAdd} submitLabel="Add Product" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
@@ -457,10 +409,9 @@ const AdminPage = () => {
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </FormField>
           <FormField label="Image URL *" value={form.imageUrl} onChange={(e: any) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
-          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = 'none'} />}
+          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = "none"} />}
         </Modal>
       )}
-
       {showEditModal && (
         <Modal title="Edit Product" onClose={() => { setShowEditModal(false); setForm(emptyForm); }} onSubmit={handleEdit} submitLabel="Save Changes" submitting={submitting}>
           <FormField label="Product Name *" value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="Enter product name" />
@@ -470,19 +421,14 @@ const AdminPage = () => {
             <FormField label="Stock *" type="number" value={form.stock} onChange={(e: any) => setForm({ ...form, stock: e.target.value })} placeholder="0" />
           </div>
           <FormField label="Image URL" value={form.imageUrl} onChange={(e: any) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
-          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = 'none'} />}
+          {form.imageUrl && <img src={form.imageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg border border-border" onError={(e: any) => e.target.style.display = "none"} />}
         </Modal>
       )}
-
-      {/* Delete User Modal */}
-      {showDeleteUserModal && (
-        <Modal title="Delete User" onClose={() => { setShowDeleteUserModal(false); setSelectedUserToDelete(null); }} onSubmit={handleDeleteUser} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
+      {showDeleteModal && (
+        <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center"><FiAlertTriangle className="w-7 h-7 text-destructive" /></div>
-            <div>
-              <p className="font-semibold text-foreground mb-1">Are you sure?</p>
-              <p className="text-sm text-muted-foreground">This will permanently delete user <span className="font-semibold text-foreground">"{selectedUserToDelete?.username}"</span> and all their cart data. This cannot be undone.</p>
-            </div>
+            <p className="text-sm text-muted-foreground">Delete <span className="font-semibold text-foreground">"{selectedProduct?.title}"</span>? This cannot be undone.</p>
           </div>
         </Modal>
       )}
@@ -491,15 +437,11 @@ const AdminPage = () => {
           <FormField label="Category Name *" value={catName} onChange={(e: any) => setCatName(e.target.value)} placeholder="e.g. Electronics" />
         </Modal>
       )}
-
-      {/* Edit Category Modal */}
       {showEditCatModal && (
         <Modal title="Edit Category" onClose={() => { setShowEditCatModal(false); setCatName(""); }} onSubmit={handleEditCategory} submitLabel="Save Changes" submitting={submitting}>
           <FormField label="Category Name *" value={catName} onChange={(e: any) => setCatName(e.target.value)} placeholder="e.g. Electronics" />
         </Modal>
       )}
-
-      {/* Delete Category Modal */}
       {showDeleteCatModal && (
         <Modal title="Delete Category" onClose={() => setShowDeleteCatModal(false)} onSubmit={handleDeleteCategory} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
           <div className="flex flex-col items-center text-center gap-4 py-2">
@@ -508,15 +450,11 @@ const AdminPage = () => {
           </div>
         </Modal>
       )}
-
-      {showDeleteModal && (
-        <Modal title="Delete Product" onClose={() => setShowDeleteModal(false)} onSubmit={handleDelete} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
+      {showDeleteUserModal && (
+        <Modal title="Delete User" onClose={() => { setShowDeleteUserModal(false); setSelectedUserToDelete(null); }} onSubmit={handleDeleteUser} submitLabel="Delete" submitColor="bg-destructive" submitting={submitting}>
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center"><FiAlertTriangle className="w-7 h-7 text-destructive" /></div>
-            <div>
-              <p className="font-semibold text-foreground mb-1">Are you sure?</p>
-              <p className="text-sm text-muted-foreground">This will permanently delete <span className="font-semibold text-foreground">"{selectedProduct?.title}"</span>.</p>
-            </div>
+            <p className="text-sm text-muted-foreground">Delete user <span className="font-semibold text-foreground">"{selectedUserToDelete?.username}"</span>? This cannot be undone.</p>
           </div>
         </Modal>
       )}
@@ -556,10 +494,9 @@ const AdminPage = () => {
 
         <main className="p-5 md:p-8">
 
-          {/* Dashboard */}
+          {/* ── Dashboard ── */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              {/* Filter Bar */}
               <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold text-foreground">Filter:</span>
                 {["overall", "monthly", "yearly", "daily"].map(f => (
@@ -568,53 +505,33 @@ const AdminPage = () => {
                 {dashFilter === "monthly" && (
                   <>
                     <select value={dashMonth} onChange={e => setDashMonth(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none">
-                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(m => (
-                        <option key={m} value={m}>{new Date(2024, parseInt(m)-1).toLocaleString("default", { month: "long" })}</option>
-                      ))}
+                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(m => <option key={m} value={m}>{new Date(2024, parseInt(m)-1).toLocaleString("default", { month: "long" })}</option>)}
                     </select>
                     <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />
                   </>
                 )}
                 {dashFilter === "yearly" && <input type="number" value={dashYear} onChange={e => setDashYear(e.target.value)} placeholder="Year" className="w-24 px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />}
                 {dashFilter === "daily" && <input type="date" value={dashDate} onChange={e => setDashDate(e.target.value)} className="px-3 py-1.5 border border-border rounded-lg text-sm bg-background text-foreground outline-none" />}
-                <button onClick={fetchDashboard} disabled={dashLoading} className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60">
-                  {dashLoading ? "Loading..." : "Apply"}
-                </button>
+                <button onClick={fetchDashboard} disabled={dashLoading} className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60">{dashLoading ? "Loading..." : "Apply"}</button>
               </div>
 
-              {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground font-medium">Total Revenue</span>
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><FiDollarSign className="w-4 h-4" /></div>
+                {[
+                  { label: "Total Revenue", value: dashData?.totalBusiness || 0, prefix: "₹", icon: FiDollarSign, color: "bg-primary/10 text-primary" },
+                  { label: "Total Orders", value: dashData?.totalOrders || 0, prefix: "", icon: FiShoppingBag, color: "bg-secondary/20 text-secondary-foreground" },
+                  { label: "Total Products", value: products.length, prefix: "", icon: FiPackage, color: "bg-accent text-accent-foreground" },
+                  { label: "Total Users", value: dashData?.totalUsers || 0, prefix: "", icon: FiUsers, color: "bg-info/10 text-info" },
+                ].map(s => (
+                  <div key={s.label} className="bg-card border border-border rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
+                      <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center`}><s.icon className="w-4 h-4" /></div>
+                    </div>
+                    {dashLoading ? <div className="h-8 w-24 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={s.value} prefix={s.prefix} /></p>}
                   </div>
-                  {dashLoading ? <div className="h-8 w-32 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalBusiness || 0} prefix="₹" /></p>}
-                </div>
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground font-medium">Total Orders</span>
-                    <div className="w-9 h-9 rounded-lg bg-secondary/20 text-secondary-foreground flex items-center justify-center"><FiShoppingBag className="w-4 h-4" /></div>
-                  </div>
-                  {dashLoading ? <div className="h-8 w-20 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalOrders || 0} /></p>}
-                </div>
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground font-medium">Total Products</span>
-                    <div className="w-9 h-9 rounded-lg bg-accent text-accent-foreground flex items-center justify-center"><FiPackage className="w-4 h-4" /></div>
-                  </div>
-                  <p className="text-2xl font-black text-foreground"><AnimatedCounter target={products.length} /></p>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground font-medium">Total Users</span>
-                    <div className="w-9 h-9 rounded-lg bg-info/10 text-info flex items-center justify-center"><FiUsers className="w-4 h-4" /></div>
-                  </div>
-                  {dashLoading ? <div className="h-8 w-20 bg-muted animate-pulse rounded" /> : <p className="text-2xl font-black text-foreground"><AnimatedCounter target={dashData?.totalUsers || 0} /></p>}
-                </div>
+                ))}
               </div>
 
-              {/* Charts */}
               {dashData && (
                 <>
                   <div className="bg-card border border-border rounded-xl p-6">
@@ -623,59 +540,45 @@ const AdminPage = () => {
                       <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{background:"#3b6d11"}}></span>Revenue</span>
                       <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{background:"#d4a017"}}></span>Trend</span>
                     </div>
-                    <div style={{position:"relative",width:"100%",height:"220px"}}>
-                      <canvas ref={barChartRef}></canvas>
-                    </div>
+                    <div style={{position:"relative",width:"100%",height:"220px"}}><canvas ref={barChartRef}></canvas></div>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="bg-card border border-border rounded-xl p-6">
                       <h3 className="font-bold text-foreground mb-4 text-lg">Category Sales</h3>
-                      <div style={{position:"relative",width:"100%",height:`${Math.max(Object.keys(dashData.categorySales || {}).length, 3) * 40 + 60}px`}}>
-                        <canvas ref={hbarChartRef}></canvas>
-                      </div>
+                      <div style={{position:"relative",width:"100%",height:`${Math.max(Object.keys(dashData.categorySales || {}).length, 3) * 40 + 60}px`}}><canvas ref={hbarChartRef}></canvas></div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                       <h3 className="font-bold text-foreground mb-2 text-lg">Order Status</h3>
                       <div className="flex flex-wrap gap-3 mb-3 text-xs text-muted-foreground">
-                        {[['Success','#3b6d11'],['Processing','#d4a017'],['Shipped','#1D9E75'],['Failed','#D85A30']].map(([l,c]) => (
+                        {[["Success","#3b6d11"],["Processing","#d4a017"],["Shipped","#1D9E75"],["Failed","#D85A30"]].map(([l,c]) => (
                           <span key={l} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:c}}></span>{l}</span>
                         ))}
                       </div>
-                      <div style={{position:"relative",width:"100%",height:"180px"}}>
-                        <canvas ref={donutChartRef}></canvas>
-                      </div>
+                      <div style={{position:"relative",width:"100%",height:"180px"}}><canvas ref={donutChartRef}></canvas></div>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* Recent Orders */}
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="font-bold text-foreground mb-5 text-lg">Recent Orders</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="pb-3 font-semibold">Order ID</th>
-                      <th className="pb-3 font-semibold">Customer</th>
-                      <th className="pb-3 font-semibold">Total</th>
-                      <th className="pb-3 font-semibold">Status</th>
-                      <th className="pb-3 font-semibold">Date</th>
+                      <th className="pb-3 font-semibold">Order ID</th><th className="pb-3 font-semibold">Customer</th><th className="pb-3 font-semibold">Total</th><th className="pb-3 font-semibold">Status</th><th className="pb-3 font-semibold">Date</th>
                     </tr></thead>
                     <tbody>
                       {recentOrders.length === 0 ? (
                         <tr><td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">No orders yet</td></tr>
-                      ) : (
-                        recentOrders.map((o) => (
-                          <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                            <td className="py-3.5 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
-                            <td className="py-3.5 text-muted-foreground">{o.username}</td>
-                            <td className="py-3.5 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
-                            <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${o.status === 'SUCCESS' ? 'bg-success/10 text-success' : o.status === 'PENDING' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'}`}>{o.status}</span></td>
-                            <td className="py-3.5 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '-'}</td>
-                          </tr>
-                        ))
-                      )}
+                      ) : recentOrders.map(o => (
+                        <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                          <td className="py-3.5 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
+                          <td className="py-3.5 text-muted-foreground">{o.username}</td>
+                          <td className="py-3.5 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
+                          <td className="py-3.5"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status] || "bg-muted text-muted-foreground"}`}>{o.status}</span></td>
+                          <td className="py-3.5 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN") : "-"}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -683,102 +586,79 @@ const AdminPage = () => {
             </div>
           )}
 
-          {/* Products */}
+          {/* ── Products ── */}
           {activeTab === "products" && (
             <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row justify-between gap-3">
-                <div className="relative flex-1 max-w-sm">
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-between">
+                <SearchBar value={productSearch} onChange={v => { setProductSearch(v); setProductPage(1); }} placeholder="Search products..." />
                 <div className="flex items-center gap-3">
-                  <p className="text-sm text-muted-foreground font-medium">{filteredProducts.length} products</p>
+                  <span className="text-sm text-muted-foreground">{filteredProducts.length} products</span>
                   <button onClick={() => { setForm(emptyForm); setShowAddModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
                     <FiPlus className="w-4 h-4" />Add Product
                   </button>
                 </div>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
-                {loading ? (
-                  <div className="p-8 space-y-3">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                        <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Stock</th><th className="p-4 font-semibold">Actions</th>
-                      </tr></thead>
-                      <tbody>
-                        {filteredProducts.map((p) => (
-                          <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                            <td className="p-4">
-                              <div className="flex items-center gap-3">
-                                <img src={p.image} alt={p.title} className="w-11 h-11 rounded-lg object-cover border border-border" />
-                                <div>
-                                  <span className="font-semibold text-foreground line-clamp-1">{p.title}</span>
-                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>
+                {loading ? <div className="p-8 space-y-3">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div> : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                          <th className="p-4 font-semibold">Product</th><th className="p-4 font-semibold">Price</th><th className="p-4 font-semibold">Stock</th><th className="p-4 font-semibold">Actions</th>
+                        </tr></thead>
+                        <tbody>
+                          {paginatedProducts.map(p => (
+                            <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <img src={p.image} alt={p.title} className="w-11 h-11 rounded-lg object-cover border border-border" />
+                                  <div>
+                                    <span className="font-semibold text-foreground line-clamp-1">{p.title}</span>
+                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="p-4 font-bold text-foreground">₹{p.price}</td>
-                            <td className="p-4">
-                              {editingStockId === p.id ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    value={stockInput}
-                                    onChange={e => setStockInput(e.target.value)}
-                                    className="w-20 px-2 py-1 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                                    autoFocus
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') handleUpdateStock(p.id, parseInt(stockInput));
-                                      if (e.key === 'Escape') setEditingStockId(null);
-                                    }}
-                                  />
-                                  <button onClick={() => handleUpdateStock(p.id, parseInt(stockInput))} className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-lg">Save</button>
-                                  <button onClick={() => setEditingStockId(null)} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg">✕</button>
+                              </td>
+                              <td className="p-4 font-bold text-foreground">₹{p.price}</td>
+                              <td className="p-4">
+                                {editingStockId === p.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <input type="number" value={stockInput} onChange={e => setStockInput(e.target.value)} autoFocus
+                                      onKeyDown={e => { if (e.key === "Enter") handleUpdateStock(p.id, parseInt(stockInput)); if (e.key === "Escape") setEditingStockId(null); }}
+                                      className="w-20 px-2 py-1 border border-border rounded-lg text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary" />
+                                    <button onClick={() => handleUpdateStock(p.id, parseInt(stockInput))} className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-lg">Save</button>
+                                    <button onClick={() => setEditingStockId(null)} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg">✕</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setEditingStockId(p.id); setStockInput(String((p as any).stock ?? 0)); }} className="hover:opacity-80 transition-opacity">
+                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${((p as any).stock ?? 0) === 0 ? "bg-destructive/10 text-destructive" : ((p as any).stock ?? 0) <= 5 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
+                                      {((p as any).stock ?? 0) === 0 ? "Out of Stock" : ((p as any).stock ?? 0) <= 5 ? `⚠ Low: ${(p as any).stock}` : (p as any).stock}
+                                    </span>
+                                  </button>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex gap-1.5">
+                                  <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors"><FiEdit className="w-3.5 h-3.5" />Edit</button>
+                                  <button onClick={() => openDelete(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-semibold hover:bg-destructive/20 transition-colors"><FiTrash2 className="w-3.5 h-3.5" />Delete</button>
                                 </div>
-                              ) : (
-                                <button
-                                  onClick={() => { setEditingStockId(p.id); setStockInput(String(p.stock ?? 0)); }}
-                                  className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                                >
-                                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
-                                    (p.stock ?? 0) === 0 ? 'bg-destructive/10 text-destructive' :
-                                    (p.stock ?? 0) <= 5 ? 'bg-warning/10 text-warning' :
-                                    'bg-success/10 text-success'
-                                  }`}>
-                                    {(p.stock ?? 0) === 0 ? 'Out of Stock' : (p.stock ?? 0) <= 5 ? `⚠ Low: ${p.stock}` : p.stock}
-                                  </span>
-                                </button>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              <div className="flex gap-1.5">
-                                <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-info/10 text-info rounded-lg text-xs font-semibold hover:bg-info/20 transition-colors"><FiEdit className="w-3.5 h-3.5" />Edit</button>
-                                <button onClick={() => openDelete(p)} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-semibold hover:bg-destructive/20 transition-colors"><FiTrash2 className="w-3.5 h-3.5" />Delete</button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationBar page={productPage} setPage={setProductPage} total={totalPages(filteredProducts)} />
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* Categories */}
+          {/* ── Categories ── */}
           {activeTab === "categories" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground font-medium">{allCategories.length} categories</p>
+                <span className="text-sm text-muted-foreground">{allCategories.length} categories</span>
                 <button onClick={() => { setCatName(""); setShowAddCatModal(true); }} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-transform">
                   <FiPlus className="w-4 h-4" />Add Category
                 </button>
@@ -787,16 +667,12 @@ const AdminPage = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[1,2,3,4].map(i => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}</div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {allCategories.map((cat) => (
+                  {allCategories.map(cat => (
                     <div key={cat.id} className="bg-card border border-border rounded-xl p-5 flex items-center justify-between hover:border-primary/30 transition-colors">
                       <span className="font-semibold text-foreground text-sm">{cat.categoryName}</span>
                       <div className="flex gap-1">
-                        <button onClick={() => { setSelectedCat(cat); setCatName(cat.categoryName); setShowEditCatModal(true); }} className="p-1.5 hover:bg-accent rounded-lg transition-colors">
-                          <FiEdit className="w-3.5 h-3.5 text-info" />
-                        </button>
-                        <button onClick={() => { setSelectedCat(cat); setShowDeleteCatModal(true); }} className="p-1.5 hover:bg-destructive/5 rounded-lg transition-colors">
-                          <FiTrash2 className="w-3.5 h-3.5 text-destructive" />
-                        </button>
+                        <button onClick={() => { setSelectedCat(cat); setCatName(cat.categoryName); setShowEditCatModal(true); }} className="p-1.5 hover:bg-accent rounded-lg transition-colors"><FiEdit className="w-3.5 h-3.5 text-info" /></button>
+                        <button onClick={() => { setSelectedCat(cat); setShowDeleteCatModal(true); }} className="p-1.5 hover:bg-destructive/5 rounded-lg transition-colors"><FiTrash2 className="w-3.5 h-3.5 text-destructive" /></button>
                       </div>
                     </div>
                   ))}
@@ -805,179 +681,111 @@ const AdminPage = () => {
             </div>
           )}
 
-          {/* Orders */}
+          {/* ── Orders ── */}
           {activeTab === "orders" && (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={orderSearch}
-                    onChange={e => setOrderSearch(e.target.value)}
-                    placeholder="Search by Order ID or Customer..."
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                </div>
-                <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} className="px-3 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
-                  {['ALL','PENDING','SUCCESS','FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                <SearchBar value={orderSearch} onChange={v => { setOrderSearch(v); setOrderPage(1); }} placeholder="Search by Order ID or Customer..." />
+                <select value={orderStatusFilter} onChange={e => { setOrderStatusFilter(e.target.value); setOrderPage(1); }} className="px-3 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary">
+                  {["ALL","PENDING","SUCCESS","FAILED","PROCESSING","SHIPPED","DELIVERED","CANCELLED"].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <p className="text-sm text-muted-foreground font-medium self-center">{filteredOrders.length} orders</p>
+                <span className="text-sm text-muted-foreground self-center">{filteredOrders.length} orders</span>
               </div>
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              {ordersLoading ? (
-                <div className="p-8 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                      <th className="p-4 font-semibold">Order ID</th>
-                      <th className="p-4 font-semibold">Customer</th>
-                      <th className="p-4 font-semibold">Date</th>
-                      <th className="p-4 font-semibold">Total</th>
-                      <th className="p-4 font-semibold">Status</th>
-                      <th className="p-4 font-semibold">Update</th>
-                    </tr></thead>
-                    <tbody>
-                      {filteredOrders.length === 0 ? (
-                        <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
-                      ) : (
-                        filteredOrders.map((o) => (
-                          <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                            <td className="p-4 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
-                            <td className="p-4 text-muted-foreground">{o.username}</td>
-                            <td className="p-4 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '-'}</td>
-                            <td className="p-4 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
-                            <td className="p-4">
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
-                                o.status === 'SUCCESS' ? 'bg-success/10 text-success' :
-                                o.status === 'PENDING' ? 'bg-warning/10 text-warning' :
-                                o.status === 'SHIPPED' ? 'bg-info/10 text-info' :
-                                o.status === 'DELIVERED' ? 'bg-success/10 text-success' :
-                                o.status === 'PROCESSING' ? 'bg-secondary/20 text-secondary-foreground' :
-                                o.status === 'CANCELLED' ? 'bg-destructive/10 text-destructive' :
-                                'bg-destructive/10 text-destructive'
-                              }`}>{o.status}</span>
-                            </td>
-                            <td className="p-4">
-                              <select
-                                value={o.status}
-                                onChange={async (e) => {
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                {ordersLoading ? <div className="p-8 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div> : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                          <th className="p-4 font-semibold">Order ID</th><th className="p-4 font-semibold">Customer</th><th className="p-4 font-semibold">Date</th><th className="p-4 font-semibold">Total</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold">Update</th>
+                        </tr></thead>
+                        <tbody>
+                          {paginatedOrders.length === 0 ? (
+                            <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No orders found</td></tr>
+                          ) : paginatedOrders.map(o => (
+                            <tr key={o.orderId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                              <td className="p-4 font-semibold text-foreground text-xs">{o.orderId?.slice(0, 16)}...</td>
+                              <td className="p-4 text-muted-foreground">{o.username}</td>
+                              <td className="p-4 text-muted-foreground text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN") : "-"}</td>
+                              <td className="p-4 font-semibold text-foreground">₹{Number(o.totalAmount).toFixed(2)}</td>
+                              <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${statusColors[o.status] || "bg-muted text-muted-foreground"}`}>{o.status}</span></td>
+                              <td className="p-4">
+                                <select value={o.status} onChange={async e => {
                                   const newStatus = e.target.value;
                                   try {
-                                    const res = await fetch(`${BASE_URL}/admin/orders/update-status`, {
-                                      method: "PUT",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ orderId: o.orderId, status: newStatus }),
-                                    });
-                                    if (res.ok) {
-                                      toast.success("Status updated!");
-                                      setAllOrders(prev => prev.map(order =>
-                                        order.orderId === o.orderId ? { ...order, status: newStatus } : order
-                                      ));
-                                    } else toast.error("Failed to update status");
+                                    const res = await fetch(`${BASE_URL}/admin/orders/update-status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: o.orderId, status: newStatus }) });
+                                    if (res.ok) { toast.success("Status updated!"); setAllOrders(prev => prev.map(order => order.orderId === o.orderId ? { ...order, status: newStatus } : order)); }
+                                    else toast.error("Failed to update status");
                                   } catch { toast.error("Something went wrong"); }
-                                }}
-                                className="px-2 py-1.5 border border-border rounded-lg text-xs bg-background text-foreground outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-                              >
-                                {['PENDING','SUCCESS','FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s => (
-                                  <option key={s} value={s}>{s}</option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                                }} className="px-2 py-1.5 border border-border rounded-lg text-xs bg-background text-foreground outline-none focus:ring-2 focus:ring-primary cursor-pointer">
+                                  {["PENDING","SUCCESS","FAILED","PROCESSING","SHIPPED","DELIVERED","CANCELLED"].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationBar page={orderPage} setPage={setOrderPage} total={totalPages(filteredOrders)} />
+                  </>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Users */}
+          {/* ── Users ── */}
           {activeTab === "users" && (
             <div className="space-y-4">
               <div className="flex gap-3">
-                <div className="relative flex-1 max-w-sm">
-                  <input
-                    type="text"
-                    value={userSearch}
-                    onChange={e => setUserSearch(e.target.value)}
-                    placeholder="Search by username or email..."
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                </div>
-                <p className="text-sm text-muted-foreground font-medium self-center">{filteredUsers.length} users</p>
+                <SearchBar value={userSearch} onChange={v => { setUserSearch(v); setUserPage(1); }} placeholder="Search by username or email..." />
+                <span className="text-sm text-muted-foreground self-center">{filteredUsers.length} users</span>
               </div>
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              {usersLoading ? (
-                <div className="p-8 space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
-                      <th className="p-4 font-semibold">User</th>
-                      <th className="p-4 font-semibold">Email</th>
-                      <th className="p-4 font-semibold">Role</th>
-                      <th className="p-4 font-semibold">Status</th>
-                      <th className="p-4 font-semibold">Joined</th>
-                      <th className="p-4 font-semibold">Actions</th>
-                    </tr></thead>
-                    <tbody>
-                      {filteredUsers.length === 0 ? (
-                        <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No users found</td></tr>
-                      ) : (
-                        filteredUsers.map((u) => (
-                          <tr key={u.userId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.username?.[0]?.toUpperCase()}</div>
-                                <span className="font-semibold text-foreground">{u.username}</span>
-                              </div>
-                            </td>
-                            <td className="p-4 text-muted-foreground">{u.email}</td>
-                            <td className="p-4">
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'}`}>{u.role}</span>
-                            </td>
-                            <td className="p-4">
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.isBlocked ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}>
-                                {u.isBlocked ? 'Blocked' : 'Active'}
-                              </span>
-                            </td>
-                            <td className="p-4 text-muted-foreground text-xs">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '-'}</td>
-                            <td className="p-4">
-                              {u.role !== 'ADMIN' && (
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => handleBlockUser(u.username, !u.isBlocked)}
-                                    className={`p-1.5 rounded-lg transition-colors ${u.isBlocked ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-warning/10 text-warning hover:bg-warning/20'}`}
-                                    title={u.isBlocked ? 'Unblock user' : 'Block user'}
-                                  >
-                                    {u.isBlocked ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiSlash className="w-3.5 h-3.5" />}
-                                  </button>
-                                  <button
-                                    onClick={() => { setSelectedUserToDelete(u); setShowDeleteUserModal(true); }}
-                                    className="p-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors"
-                                    title="Delete user"
-                                  >
-                                    <FiTrash2 className="w-3.5 h-3.5" />
-                                  </button>
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                {usersLoading ? <div className="p-8 space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div> : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-border text-left text-muted-foreground bg-accent/50">
+                          <th className="p-4 font-semibold">User</th><th className="p-4 font-semibold">Email</th><th className="p-4 font-semibold">Role</th><th className="p-4 font-semibold">Status</th><th className="p-4 font-semibold">Joined</th><th className="p-4 font-semibold">Actions</th>
+                        </tr></thead>
+                        <tbody>
+                          {paginatedUsers.length === 0 ? (
+                            <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No users found</td></tr>
+                          ) : paginatedUsers.map(u => (
+                            <tr key={u.userId} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                              <td className="p-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.username?.[0]?.toUpperCase()}</div>
+                                  <span className="font-semibold text-foreground">{u.username}</span>
                                 </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                              </td>
+                              <td className="p-4 text-muted-foreground">{u.email}</td>
+                              <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.role === "ADMIN" ? "bg-primary/10 text-primary" : "bg-accent text-accent-foreground"}`}>{u.role}</span></td>
+                              <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${u.isBlocked ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>{u.isBlocked ? "Blocked" : "Active"}</span></td>
+                              <td className="p-4 text-muted-foreground text-xs">{u.createdAt ? new Date(u.createdAt).toLocaleDateString("en-IN") : "-"}</td>
+                              <td className="p-4">
+                                {u.role !== "ADMIN" && (
+                                  <div className="flex gap-1.5">
+                                    <button onClick={() => handleBlockUser(u.username, !u.isBlocked)} title={u.isBlocked ? "Unblock user" : "Block user"}
+                                      className={`p-1.5 rounded-lg transition-colors ${u.isBlocked ? "bg-success/10 text-success hover:bg-success/20" : "bg-warning/10 text-warning hover:bg-warning/20"}`}>
+                                      {u.isBlocked ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiSlash className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button onClick={() => { setSelectedUserToDelete(u); setShowDeleteUserModal(true); }} title="Delete user"
+                                      className="p-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors">
+                                      <FiTrash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationBar page={userPage} setPage={setUserPage} total={totalPages(filteredUsers)} />
+                  </>
+                )}
+              </div>
             </div>
           )}
 
