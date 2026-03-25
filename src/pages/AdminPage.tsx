@@ -690,6 +690,30 @@ const AdminPage = () => {
                   {["ALL","PENDING","SUCCESS","FAILED","PROCESSING","SHIPPED","DELIVERED","CANCELLED"].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <span className="text-sm text-muted-foreground self-center">{filteredOrders.length} orders</span>
+                <button
+                  onClick={() => {
+                    const headers = ["Order ID", "Customer", "Total (₹)", "Status", "Date"];
+                    const rows = filteredOrders.map(o => [
+                      o.orderId,
+                      o.username,
+                      Number(o.totalAmount).toFixed(2),
+                      o.status,
+                      o.createdAt ? new Date(o.createdAt).toLocaleDateString("en-IN") : "-"
+                    ]);
+                    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `cartnest-orders-${new Date().toISOString().split("T")[0]}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success("Orders exported!");
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-accent transition-colors"
+                >
+                  ⬇ Export CSV
+                </button>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
                 {ordersLoading ? <div className="p-8 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}</div> : (
